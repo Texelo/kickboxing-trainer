@@ -1,14 +1,14 @@
 /** biome-ignore-all lint/correctness/useExhaustiveDependencies: <explanation> */
 
+import Slider from "@react-native-community/slider";
+import React, { useEffect, useMemo, useState } from "react";
+import { StyleSheet, ToastAndroid, View } from "react-native";
+//import { MultiSelect } from "react-native-element-dropdown";
 import { Collapsible } from "@/components/Collapsible";
 import ParallaxScrollView from "@/components/ParallaxScrollView";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { IconSymbol } from "@/components/ui/IconSymbol";
-import Slider from "@react-native-community/slider";
-import React, { useEffect, useMemo, useState } from "react";
-import { StyleSheet, ToastAndroid, View } from "react-native";
-import { MultiSelect } from "react-native-element-dropdown";
 import { Button, Text, TextInput } from "react-native-paper";
 import { v4 as uuidv4 } from "uuid";
 import { copyToClipboard, getValueFor, save } from "../../utils/settings";
@@ -129,7 +129,7 @@ export default function TabTwoScreen() {
 				onChangeText={(value) => setNewMoves(value)}
 			/>
 			<Text>Groups</Text>
-			<MultiSelect
+			{/*<MultiSelect
 				data={[...groups, ...(customGroup.name ? [customGroup] : [])]}
 				search
 				labelField={"name"}
@@ -160,7 +160,7 @@ export default function TabTwoScreen() {
 					});
 					setNewGroups(newNewGroups);
 				}}
-			/>
+			/>*/}
 			{/*<TextInput
 				value={newGroup}
 				onChangeText={(value) => setNewGroup(value)}

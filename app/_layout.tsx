@@ -1,9 +1,11 @@
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
+import "expo-dev-client";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React from "react";
+import "react-native-get-random-values";
 import { PaperProvider } from "react-native-paper";
 import "react-native-reanimated";
 
