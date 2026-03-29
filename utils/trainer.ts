@@ -8,7 +8,7 @@ export interface TrainerControls {
 	stop: () => void;
 }
 
-export default function trainer(exercises: Array<Exercise>): TrainerControls {
+export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifier?: string): TrainerControls {
 	const initialDelay = 1000;
 	const reps = 3;
 	let index = 0;
@@ -30,7 +30,7 @@ export default function trainer(exercises: Array<Exercise>): TrainerControls {
 		if (rep > reps) {
 			index++;
 			if (index >= exercises.length) {
-				Speech.speak("done");
+				Speech.speak("done", { voice: activeVoiceIdentifier });
 				return;
 			}
 			rep = 0;
@@ -43,6 +43,7 @@ export default function trainer(exercises: Array<Exercise>): TrainerControls {
 		const delay = !rep ? initialDelay : (exercise.repDelay ?? 1000);
 		
 		Speech.speak(phrase, {
+			voice: activeVoiceIdentifier,
 			onDone() {
 				if (!isActive) return;
 				rep++;

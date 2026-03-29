@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { StyleSheet, ToastAndroid, View, ScrollView } from "react-native";
+import { Picker } from "@react-native-picker/picker";
+import * as Speech from "expo-speech";
 import { ActivityIndicator, Button, Card, Divider, FAB, IconButton, Text, TextInput, Title, useTheme, Chip } from "react-native-paper";
 import { v4 as uuidv4 } from "uuid";
 import Slider from "@react-native-community/slider";
@@ -31,6 +33,8 @@ const DEFAULT_GROUPS: Array<ExerciseGroup> = [
 export default function SettingsScreen() {
 	const theme = useTheme();
 	const [groups, setGroups] = useState<Array<ExerciseGroup>>([]);
+	const [voices, setVoices] = useState<Speech.Voice[]>([]);
+	const [selectedVoice, setSelectedVoice] = useState<string>("");
 	const [loading, setLoading] = useState(true);
 	const [importData, setImportData] = useState<string>("");
 
@@ -45,9 +49,7 @@ export default function SettingsScreen() {
 
 	useEffect(() => {
 		getValueFor("groups", (val) => {
-			if (!val) {
-				setGroups(DEFAULT_GROUPS);
-			} else {
+			if (val) {
 				try {
 					const parsed = JSON.parse(val);
 					if (parsed && parsed.length > 0) {
@@ -64,10 +66,21 @@ export default function SettingsScreen() {
 						setGroups(DEFAULT_GROUPS);
 					}
 				} catch(e) { 
+					console.error("Config load error", e);
 					setGroups(DEFAULT_GROUPS);
 				}
+			} else {
+				setGroups(DEFAULT_GROUPS);
 			}
 			setLoading(false);
+		});
+
+		// Load available voices and their selected config
+		Speech.getAvailableVoicesAsync().then((v) => {
+			if (v && v.length) setVoices(v);
+		});
+		getValueFor("selectedVoice", (v) => {
+			if (v) setSelectedVoice(v);
 		});
 	}, []);
 
@@ -155,7 +168,32 @@ export default function SettingsScreen() {
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
 			<ScrollView contentContainerStyle={{ paddingHorizontal: 15, paddingBottom: 100 }}>
 				<View style={{ marginTop: 20, marginBottom: 20 }}>
-					<Title>Training Groups Config</Title>
+					<Title>Settings</Title>
+					
+					<Card style={[styles.groupCard, { backgroundColor: theme.colors.elevation.level2, marginTop: 10 }]}>
+						<Card.Title title="Voice Selection" subtitle="Choose your trainer's voice" left={(props) => <IconButton {...props} icon="account-voice" />} />
+						<Card.Content>
+							<View style={{ borderRadius: 10, overflow: 'hidden', backgroundColor: theme.colors.elevation.level3, marginBottom: 10 }}>
+								<Picker
+									selectedValue={selectedVoice}
+									onValueChange={(val) => {
+										setSelectedVoice(val);
+										save("selectedVoice", val);
+									}}
+									style={{ color: theme.colors.onSurface }}
+									dropdownIconColor={theme.colors.onSurface}
+								>
+									<Picker.Item label="System Default Voice" value="" />
+									{voices.map((v) => (
+										<Picker.Item key={v.identifier} label={`${v.name} (${v.language})`} value={v.identifier} />
+									))}
+								</Picker>
+							</View>
+							<Button mode="outlined" icon="volume-high" onPress={() => Speech.speak("Ready to train!", { voice: selectedVoice })}>Test Voice</Button>
+						</Card.Content>
+					</Card>
+
+					<Title style={{marginTop: 20}}>Training Groups Config</Title>
 					<Text style={{color: theme.colors.secondary, marginBottom: 15}}>Click Edit on any combo to modify or move it to a different group.</Text>
 					
 					<Card mode="outlined">

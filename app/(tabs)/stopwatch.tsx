@@ -23,6 +23,7 @@ export default function TrainerScreen() {
 	const [status, setStatus] = useState(-1);
 	const [groups, setGroups] = useState<Array<ExerciseGroup>>([]);
 	const [groupName, setGroupName] = useState<string>();
+	const [activeVoice, setActiveVoice] = useState<string>();
 	const [isCountdown, setIsCountdown] = useState(false);
 	
 	const trainerRef = useRef<any>(null); // holds TrainerControls
@@ -40,7 +41,7 @@ export default function TrainerScreen() {
 		} else if (selectedGroup) {
 			// Starting fresh
 			if (trainerRef.current) trainerRef.current.stop();
-			trainerRef.current = trainer(selectedGroup.exercises);
+			trainerRef.current = trainer(selectedGroup.exercises, activeVoice);
 			reset();
 			setStatus(1);
 		}
@@ -75,7 +76,7 @@ export default function TrainerScreen() {
 				setTime((t) => {
 					if (isCountdown) {
 						if (t <= 1) {
-							Speech.speak("Rest is over, let's get back to work!");
+							Speech.speak("Rest is over, let's get back to work!", { voice: activeVoice });
 							setStatus(0); // Pause automatically
 							setIsCountdown(false);
 							return 0;
@@ -89,7 +90,7 @@ export default function TrainerScreen() {
 			reset();
 		}
 		return () => clearInterval(timerID);
-	}, [status, isCountdown]);
+	}, [status, isCountdown, activeVoice]);
 
 	const DEFAULT_GROUPS: Array<ExerciseGroup> = [
 		{
@@ -113,6 +114,9 @@ export default function TrainerScreen() {
 	];
 
 	const loadGroups = () => {
+		getValueFor("selectedVoice", (v) => {
+			if (v) setActiveVoice(v);
+		});
 		getValueFor("groups", (val) => {
 			let parsed = DEFAULT_GROUPS;
 			if (val) {
