@@ -8,7 +8,7 @@ export interface Move {
 
 export interface Exercise {
 	id: string;
-	moves: string;
+	moves: string[];
 	repDelay?: number;
 	enabled?: boolean;
 }
