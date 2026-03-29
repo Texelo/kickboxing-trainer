@@ -1,6 +1,6 @@
-import { StyleSheet, View } from "react-native";
-import { Text, Card, Title, Paragraph, Button, useTheme } from "react-native-paper";
 import { useRouter } from "expo-router";
+import { StyleSheet, View } from "react-native";
+import { Button, Card, Paragraph, Text, Title, useTheme } from "react-native-paper";
 
 export default function HomeScreen() {
 	const theme = useTheme();
@@ -9,8 +9,7 @@ export default function HomeScreen() {
 	return (
 		<View style={[styles.container, { backgroundColor: theme.colors.background }]}>
 			<View style={styles.header}>
-				<Text variant="displaySmall" style={{ color: theme.colors.primary, fontWeight: 'bold' }}>Kickbox Pro</Text>
-				<Text variant="titleMedium" style={{ color: theme.colors.secondary }}>Your personal AI trainer</Text>
+				<Text variant="displaySmall" style={{ color: theme.colors.primary, fontWeight: 'bold' }}>Kickboxing Trainer</Text>
 			</View>
 
 			<View style={styles.cards}>
