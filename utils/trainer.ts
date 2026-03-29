@@ -10,7 +10,7 @@ export interface TrainerControls {
 	rewind: () => void;
 }
 
-export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifier?: string): TrainerControls {
+export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifier?: string, speedFactor: number = 1): TrainerControls {
 	const initialDelay = 1000;
 	const reps = 3;
 	let index = 0;
@@ -44,7 +44,7 @@ export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifie
 		activelySpeaking = true;
 
 		const phrase = !rep ? (exercise.moves.join(", ") || "go") : Converter.toWords(rep);
-		const delay = !rep ? initialDelay : (exercise.repDelay ?? 1000);
+		const delay = !rep ? initialDelay : (exercise.repDelay ?? 1000) / speedFactor;
 
 		Speech.speak(phrase, {
 			voice: activeVoiceIdentifier,

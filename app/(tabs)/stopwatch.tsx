@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { StyleSheet, View, ScrollView } from "react-native";
 import * as Speech from "expo-speech";
 import { Button, IconButton, Text, Surface, useTheme, Chip } from "react-native-paper";
+import Slider from "@react-native-community/slider";
 
 import { getValueFor } from "../../utils/settings";
 import trainer from "../../utils/trainer";
@@ -26,6 +27,7 @@ export default function TrainerScreen() {
 	const [activeVoice, setActiveVoice] = useState<string>();
 	const [isCountdown, setIsCountdown] = useState(false);
 	const [isShuffle, setIsShuffle] = useState(false);
+	const [intensity, setIntensity] = useState(1);
 	
 	const trainerRef = useRef<any>(null); // holds TrainerControls
 
@@ -49,7 +51,7 @@ export default function TrainerScreen() {
 				targetExercises = [...targetExercises].sort(() => Math.random() - 0.5);
 			}
 			
-			trainerRef.current = trainer(targetExercises, activeVoice);
+			trainerRef.current = trainer(targetExercises, activeVoice, intensity);
 			reset();
 			setStatus(1);
 		}
@@ -172,6 +174,22 @@ export default function TrainerScreen() {
 				</Text>
 			</Surface>
 			
+			<View style={{ width: '100%', paddingVertical: 15, alignItems: 'center' }}>
+				<Text variant="labelLarge" style={{ color: theme.colors.secondary, marginBottom: 5 }}>
+					Intensity: {intensity === 1.0 ? 'Normal' : intensity > 1 ? 'Pro (Faster)' : 'Beginner (Slower)'}
+				</Text>
+				<Slider
+					style={{ width: 280, height: 40 }}
+					minimumValue={0.5}
+					maximumValue={1.5}
+					step={0.1}
+					value={intensity}
+					onValueChange={(val: number) => setIntensity(val)}
+					minimumTrackTintColor={theme.colors.primary}
+					maximumTrackTintColor={theme.colors.secondary}
+				/>
+			</View>
+
 			<View style={styles.controlsRow}>
 				<IconButton icon="skip-previous" size={40} iconColor={theme.colors.secondary} onPress={handleRewind} disabled={status === -1} />
 				
