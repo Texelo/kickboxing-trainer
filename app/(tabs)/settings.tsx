@@ -1,13 +1,13 @@
-import React, { useEffect, useState } from "react";
-import { StyleSheet, ToastAndroid, View, ScrollView } from "react-native";
+import Slider from "@react-native-community/slider";
 import { Picker } from "@react-native-picker/picker";
 import * as Speech from "expo-speech";
-import { ActivityIndicator, Button, Card, Divider, FAB, IconButton, Text, TextInput, Title, useTheme, Chip } from "react-native-paper";
+import React, { useEffect, useState } from "react";
+import { ScrollView, StyleSheet, ToastAndroid, View } from "react-native";
+import { ActivityIndicator, Button, Card, Chip, Divider, FAB, IconButton, Text, TextInput, Title, useTheme } from "react-native-paper";
 import { v4 as uuidv4 } from "uuid";
-import Slider from "@react-native-community/slider";
 
 import { copyToClipboard, getValueFor, save } from "../../utils/settings";
-import type { Exercise, ExerciseGroup } from "../../utils/types";
+import type { ExerciseGroup } from "../../utils/types";
 
 const DEFAULT_GROUPS: Array<ExerciseGroup> = [
 	{
@@ -65,7 +65,7 @@ export default function SettingsScreen() {
 					} else {
 						setGroups(DEFAULT_GROUPS);
 					}
-				} catch(e) { 
+				} catch (e) {
 					console.error("Config load error", e);
 					setGroups(DEFAULT_GROUPS);
 				}
@@ -155,21 +155,21 @@ export default function SettingsScreen() {
 				return { ...grp, exercises: grp.exercises.filter(e => e.id !== exerciseId) };
 			}
 			return grp;
-		})); 
+		}));
 	};
 
 	const deleteGroup = (groupId: string) => {
 		setGroups(g => g.filter(grp => grp.id !== groupId));
 	};
 
-	if (loading) return <View style={{flex: 1, justifyContent:'center'}}><ActivityIndicator /></View>;
+	if (loading) return <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator /></View>;
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
 			<ScrollView contentContainerStyle={{ paddingHorizontal: 15, paddingBottom: 100 }}>
 				<View style={{ marginTop: 20, marginBottom: 20 }}>
 					<Title>Settings</Title>
-					
+
 					<Card style={[styles.groupCard, { backgroundColor: theme.colors.elevation.level2, marginTop: 10 }]}>
 						<Card.Title title="Voice Selection" subtitle="Choose your trainer's voice" left={(props) => <IconButton {...props} icon="account-voice" />} />
 						<Card.Content>
@@ -193,13 +193,13 @@ export default function SettingsScreen() {
 						</Card.Content>
 					</Card>
 
-					<Title style={{marginTop: 20}}>Training Groups Config</Title>
-					<Text style={{color: theme.colors.secondary, marginBottom: 15}}>Click Edit on any combo to modify or move it to a different group.</Text>
-					
+					<Title style={{ marginTop: 20 }}>Training Groups Config</Title>
+					<Text style={{ color: theme.colors.secondary, marginBottom: 15 }}>Click Edit on any combo to modify or move it to a different group.</Text>
+
 					<Card mode="outlined">
 						<Card.Title title="Data Tools" subtitle="Export or overwrite configs" />
 						<Card.Content>
-							<View style={{flexDirection: "row", gap: 10, marginBottom: 10}}>
+							<View style={{ flexDirection: "row", gap: 10, marginBottom: 10 }}>
 								<Button compact mode="contained-tonal" icon="export" onPress={() => { copyToClipboard(JSON.stringify(groups)); ToastAndroid.show("Copied raw data to clipboard", ToastAndroid.SHORT); }}>
 									Export
 								</Button>
@@ -207,13 +207,13 @@ export default function SettingsScreen() {
 									Clear All
 								</Button>
 							</View>
-							<Divider style={{marginVertical: 10}} />
+							<Divider style={{ marginVertical: 10 }} />
 							<TextInput
 								label="Paste Config to Import"
 								value={importData}
 								onChangeText={setImportData}
 								mode="outlined"
-								style={[styles.input, {height: 45, fontSize: 13}]}
+								style={[styles.input, { height: 45, fontSize: 13 }]}
 							/>
 							<Button mode="contained" onPress={() => {
 								try {
@@ -232,11 +232,11 @@ export default function SettingsScreen() {
 					const isEditingGroup = editingGroupId === group.id;
 					return (
 						<Card key={group.id} style={styles.groupCard} mode="elevated">
-							<Card.Title 
+							<Card.Title
 								titleVariant="titleLarge"
-								title={isEditingGroup ? "" : group.name} 
+								title={isEditingGroup ? "" : group.name}
 								right={(props) => (
-									<View style={{flexDirection:'row', alignItems: 'center'}}>
+									<View style={{ flexDirection: 'row', alignItems: 'center' }}>
 										<Button compact onPress={() => addExerciseToGroup(group.id)}>+ Combo</Button>
 										{!isEditingGroup && <IconButton {...props} icon="pencil" onPress={() => { setEditingGroupId(group.id); setGroupNameEdit(group.name); }} />}
 										{!isEditingGroup && <IconButton {...props} iconColor={theme.colors.error} icon="delete" onPress={() => deleteGroup(group.id)} />}
@@ -250,7 +250,7 @@ export default function SettingsScreen() {
 								</Card.Content>
 							)}
 
-							{group.exercises.length > 0 && <View style={styles.dividerBox}><Divider/></View>}
+							{group.exercises.length > 0 && <View style={styles.dividerBox}><Divider /></View>}
 
 							{group.exercises.map(item => {
 								const isEditingEx = editingExerciseId === item.id;
@@ -259,7 +259,7 @@ export default function SettingsScreen() {
 										{isEditingEx ? (
 											<View style={styles.editorContainer}>
 												<TextInput label="Moves (comma separated)" value={movesEdit} onChangeText={setMovesEdit} style={styles.input} />
-												
+
 												<Text style={{ marginTop: 15, marginBottom: 5 }}>Transfer to Group:</Text>
 												<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 5 }}>
 													{groups.map((g) => (
@@ -285,18 +285,18 @@ export default function SettingsScreen() {
 													step={0.1}
 													minimumTrackTintColor={theme.colors.primary}
 												/>
-												<View style={{ flexDirection:'row', justifyContent:'flex-end', marginTop: 10}}>
+												<View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10 }}>
 													<Button onPress={() => setEditingExerciseId(null)}>Cancel</Button>
 													<Button mode="contained" onPress={() => saveExerciseEdit(group.id, item.id)}>Save Combo</Button>
 												</View>
 											</View>
 										) : (
 											<>
-												<View style={{flex: 1, paddingLeft: 10, paddingVertical: 5}}>
-													<View style={{flexDirection: "row", flexWrap: "wrap", gap: 5, marginBottom: 5}}>
-														{item.moves.map((m, i) => <Chip key={i} compact style={{backgroundColor: theme.colors.elevation.level3}} textStyle={{fontSize: 12}}>{m}</Chip>)}
+												<View style={{ flex: 1, paddingLeft: 10, paddingVertical: 5 }}>
+													<View style={{ flexDirection: "row", flexWrap: "wrap", gap: 5, marginBottom: 5 }}>
+														{item.moves.map((m, i) => <Chip key={i} compact style={{ backgroundColor: theme.colors.elevation.level3 }} textStyle={{ fontSize: 12 }}>{m}</Chip>)}
 													</View>
-													<Text variant="bodySmall" style={{ color: theme.colors.secondary }}>{((item.repDelay ?? 1000)/1000).toFixed(1)}s delay</Text>
+													<Text variant="bodySmall" style={{ color: theme.colors.secondary }}>{((item.repDelay ?? 1000) / 1000).toFixed(1)}s delay</Text>
 												</View>
 												<IconButton icon="pencil-outline" size={20} onPress={() => {
 													setEditingExerciseId(item.id);
@@ -304,7 +304,7 @@ export default function SettingsScreen() {
 													setDelayEdit((item.repDelay ?? 1000) / 1000);
 													setTargetGroupEdit(group.id);
 												}} />
-												<IconButton icon="delete-outline" iconColor={theme.colors.error} size={20} onPress={() => deleteExercise(group.id, item.id)}/>
+												<IconButton icon="delete-outline" iconColor={theme.colors.error} size={20} onPress={() => deleteExercise(group.id, item.id)} />
 											</>
 										)}
 									</View>

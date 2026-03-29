@@ -6,6 +6,8 @@ export interface TrainerControls {
 	pause: () => void;
 	resume: () => void;
 	stop: () => void;
+	skip: () => void;
+	rewind: () => void;
 }
 
 export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifier?: string): TrainerControls {
@@ -15,14 +17,15 @@ export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifie
 	let timeoutId: ReturnType<typeof setTimeout> | null = null;
 	let isActive = true;
 	let isPaused = false;
-	
+
 	let resumeTimeout = 0;
 	let startTime = 0;
 
-	if (!exercises || exercises.length === 0) return { pause: () => {}, resume: () => {}, stop: () => {} };
-	
+	if (!exercises || exercises.length === 0) return { pause: () => { }, resume: () => { }, stop: () => { }, skip: ()=>{}, rewind: ()=>{} };
+
 	let exercise = exercises[index];
 	let rep = 0;
+	let activelySpeaking = false;
 
 	const func = () => {
 		if (!isActive || isPaused) return;
@@ -38,14 +41,16 @@ export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifie
 		}
 
 		timeoutId = null; // Clear so we know we're speaking
+		activelySpeaking = true;
 
 		const phrase = !rep ? (exercise.moves.join(", ") || "go") : Converter.toWords(rep);
 		const delay = !rep ? initialDelay : (exercise.repDelay ?? 1000);
-		
+
 		Speech.speak(phrase, {
 			voice: activeVoiceIdentifier,
 			onDone() {
 				if (!isActive) return;
+				activelySpeaking = false;
 				rep++;
 				if (!isPaused) {
 					startTime = Date.now();
@@ -58,12 +63,29 @@ export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifie
 				}
 			},
 			onStopped() {
-				// Aborted explicitly
+				activelySpeaking = false;
 			}
 		});
 	};
 
 	func();
+	
+	const jump = (direction: number) => {
+		index = Math.max(0, Math.min(exercises.length - 1, index + direction));
+		rep = 0;
+		exercise = exercises[index];
+		
+		if (timeoutId && timeoutId !== 1 as any) clearTimeout(timeoutId);
+		if (activelySpeaking) Speech.stop();
+		
+		if (!isPaused) {
+			activelySpeaking = false;
+			func();
+		} else {
+			timeoutId = 1 as any;
+			resumeTimeout = 0;
+		}
+	};
 
 	return {
 		pause: () => {
@@ -81,7 +103,7 @@ export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifie
 		resume: () => {
 			if (!isPaused) return;
 			isPaused = false;
-			
+
 			// If timeoutId is present (either an active ID we cleared, or '1' from an onDone marker)
 			if (timeoutId) {
 				startTime = Date.now();
@@ -92,6 +114,8 @@ export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifie
 			isActive = false;
 			if (timeoutId && timeoutId !== 1 as any) clearTimeout(timeoutId);
 			Speech.stop();
-		}
+		},
+		skip: () => jump(1),
+		rewind: () => jump(-1)
 	};
 }

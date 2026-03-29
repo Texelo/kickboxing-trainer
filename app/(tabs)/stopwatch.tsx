@@ -25,6 +25,7 @@ export default function TrainerScreen() {
 	const [groupName, setGroupName] = useState<string>();
 	const [activeVoice, setActiveVoice] = useState<string>();
 	const [isCountdown, setIsCountdown] = useState(false);
+	const [isShuffle, setIsShuffle] = useState(false);
 	
 	const trainerRef = useRef<any>(null); // holds TrainerControls
 
@@ -41,7 +42,14 @@ export default function TrainerScreen() {
 		} else if (selectedGroup) {
 			// Starting fresh
 			if (trainerRef.current) trainerRef.current.stop();
-			trainerRef.current = trainer(selectedGroup.exercises, activeVoice);
+			
+			let targetExercises = selectedGroup.exercises;
+			if (isShuffle) {
+				// Create a random shuffled copy using the Fisher-Yates approach proxy
+				targetExercises = [...targetExercises].sort(() => Math.random() - 0.5);
+			}
+			
+			trainerRef.current = trainer(targetExercises, activeVoice);
 			reset();
 			setStatus(1);
 		}
@@ -60,6 +68,14 @@ export default function TrainerScreen() {
 		}
 		Speech.stop();
 		reset();
+	};
+
+	const handleSkip = () => {
+		if (trainerRef.current) trainerRef.current.skip();
+	};
+
+	const handleRewind = () => {
+		if (trainerRef.current) trainerRef.current.rewind();
 	};
 
 	const startRest = (seconds: number) => {
@@ -157,6 +173,8 @@ export default function TrainerScreen() {
 			</Surface>
 			
 			<View style={styles.controlsRow}>
+				<IconButton icon="skip-previous" size={40} iconColor={theme.colors.secondary} onPress={handleRewind} disabled={status === -1} />
+				
 				{status !== 1 && (
 					<IconButton 
 						icon="play-circle" 
@@ -170,11 +188,14 @@ export default function TrainerScreen() {
 					<IconButton icon="pause-circle" size={60} iconColor={theme.colors.secondary} onPress={handlePause} />
 				)}
 				<IconButton icon="stop-circle" size={60} iconColor={theme.colors.error} onPress={handleStop} disabled={status === -1} />
+				
+				<IconButton icon="skip-next" size={40} iconColor={theme.colors.secondary} onPress={handleSkip} disabled={status === -1} />
 			</View>
 
-			<View style={{ flexDirection: 'row', gap: 15, justifyContent: 'center' }}>
-				<Button mode="contained-tonal" icon="timer" onPress={() => startRest(30)}>30s Rest</Button>
-				<Button mode="contained-tonal" icon="timer" onPress={() => startRest(60)}>60s Rest</Button>
+			<View style={{ flexDirection: 'row', gap: 10, justifyContent: 'center' }}>
+				<Button mode={isShuffle ? "contained" : "contained-tonal"} icon="shuffle" onPress={() => setIsShuffle(!isShuffle)}>Shuffle</Button>
+				<Button mode="contained-tonal" icon="timer" onPress={() => startRest(30)}>30s</Button>
+				<Button mode="contained-tonal" icon="timer" onPress={() => startRest(60)}>60s</Button>
 			</View>
 
 			<View style={styles.trainerSetup}>
