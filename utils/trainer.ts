@@ -8,9 +8,11 @@ export interface TrainerControls {
 	stop: () => void;
 	skip: () => void;
 	rewind: () => void;
+	updateSpeed: (factor: number) => void;
 }
 
-export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifier?: string, speedFactor: number = 1): TrainerControls {
+export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifier?: string, initialSpeed: number = 1): TrainerControls {
+	let speedFactor = initialSpeed;
 	const initialDelay = 1000;
 	const reps = 3;
 	let index = 0;
@@ -21,7 +23,7 @@ export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifie
 	let resumeTimeout = 0;
 	let startTime = 0;
 
-	if (!exercises || exercises.length === 0) return { pause: () => { }, resume: () => { }, stop: () => { }, skip: ()=>{}, rewind: ()=>{} };
+	if (!exercises || exercises.length === 0) return { pause: () => { }, resume: () => { }, stop: () => { }, skip: ()=>{}, rewind: ()=>{}, updateSpeed: ()=>{} };
 
 	let exercise = exercises[index];
 	let rep = 0;
@@ -33,8 +35,7 @@ export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifie
 		if (rep > reps) {
 			index++;
 			if (index >= exercises.length) {
-				Speech.speak("done", { voice: activeVoiceIdentifier });
-				return;
+				index = 0; // Infinite loop the set until the round timer kills us
 			}
 			rep = 0;
 			exercise = exercises[index];
@@ -116,6 +117,9 @@ export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifie
 			Speech.stop();
 		},
 		skip: () => jump(1),
-		rewind: () => jump(-1)
+		rewind: () => jump(-1),
+		updateSpeed: (factor: number) => {
+			speedFactor = factor;
+		}
 	};
 }
