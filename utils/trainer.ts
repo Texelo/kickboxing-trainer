@@ -6,14 +6,11 @@ export default function trainer(exercises: Array<Exercise>): void {
 	const initialDelay = 1000;
 	const reps = 3;
 	let index = 0;
+	if (!exercises || exercises.length === 0) return;
+	
 	let exercise = exercises[index];
 	let rep = 0;
-	//const voice = "Microsoft Hazel - English (United Kingdom)"
-	//const voice = "Microsoft Susan - English (United Kingdom)"
-	//const voice = "Microsoft George - English (United Kingdom)"
-	//const voice = undefined
 
-	//console.log(Speech.getAvailableVoicesAsync())
 	const func = () => {
 		if (rep > reps) {
 			index++;
@@ -25,15 +22,15 @@ export default function trainer(exercises: Array<Exercise>): void {
 			exercise = exercises[index];
 		}
 
-		const phrase = !rep ? exercise.moves : Converter.toWords(rep);
-		const delay = !rep ? initialDelay : exercise.repDelay ?? 1000;
-		console.log(rep, phrase, delay);
+		const phrase = !rep ? (exercise.moves || "go") : Converter.toWords(rep);
+		const delay = !rep ? initialDelay : (exercise.repDelay ?? 1000);
+		console.log(`Rep: ${rep}, Phrase: ${phrase}, Delay: ${delay}`);
+		
 		Speech.speak(phrase, {
 			onDone() {
 				rep++;
 				setTimeout(func, delay);
 			},
-			//voice: voice
 		});
 	};
 
