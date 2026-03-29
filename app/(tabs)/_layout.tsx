@@ -16,15 +16,6 @@ export default function TabLayout() {
 			<Tabs.Screen
 				name="index"
 				options={{
-					title: "Dashboard",
-					tabBarIcon: ({ color }) => (
-						<FontAwesome size={28} name="home" color={color} />
-					),
-				}}
-			/>
-			<Tabs.Screen
-				name="stopwatch"
-				options={{
 					title: "Trainer",
 					tabBarIcon: ({ color }) => (
 						<FontAwesome size={28} name="clock-o" color={color} />

@@ -2,7 +2,7 @@ import Slider from "@react-native-community/slider";
 import { Picker } from "@react-native-picker/picker";
 import * as Speech from "expo-speech";
 import React, { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, ToastAndroid, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Button, Card, Chip, Divider, FAB, IconButton, Text, TextInput, Title, useTheme } from "react-native-paper";
 import { v4 as uuidv4 } from "uuid";
 
@@ -15,17 +15,17 @@ const DEFAULT_GROUPS: Array<ExerciseGroup> = [
 		name: "🥊 Beginner Combos",
 		exercises: [
 			{ id: "1", moves: ["jab", "cross"], repDelay: 1500 },
-			{ id: "2", moves: ["jab", "cross", "lead hook"], repDelay: 2000 },
-			{ id: "3", moves: ["jab", "cross", "rear kick"], repDelay: 2500 }
+			{ id: "2", moves: ["jab", "cross", "left hook"], repDelay: 2000 },
+			{ id: "3", moves: ["jab", "cross", "rear roundhouse"], repDelay: 2500 }
 		]
 	},
 	{
 		id: "default-2",
 		name: "🥋 Advanced Flow",
 		exercises: [
-			{ id: "4", moves: ["jab", "cross", "slip", "cross", "hook"], repDelay: 3000 },
-			{ id: "5", moves: ["lead hook", "cross", "rear knee"], repDelay: 3000 },
-			{ id: "6", moves: ["jab", "rear uppercut", "lead hook", "rear kick"], repDelay: 3500 }
+			{ id: "4", moves: ["jab", "cross", "slip", "cross", "right hook"], repDelay: 3000 },
+			{ id: "5", moves: ["left hook", "cross", "rear knee"], repDelay: 3000 },
+			{ id: "6", moves: ["jab", "right uppercut", "left hook", "rear roundhouse"], repDelay: 3500 }
 		]
 	}
 ];
@@ -46,6 +46,17 @@ export default function SettingsScreen() {
 	const [movesEdit, setMovesEdit] = useState<string>("");
 	const [delayEdit, setDelayEdit] = useState<number>(1.5);
 	const [targetGroupEdit, setTargetGroupEdit] = useState<string>("");
+
+	// AI Generator States
+	const ALL_MOVES = [
+		"jab", "cross", "left hook", "right hook", "left uppercut", "right uppercut", 
+		"lead knee", "rear knee", 
+		"lead roundhouse", "rear roundhouse", 
+		"lead side kick", "rear side kick", 
+		"lead push kick", "rear push kick", 
+		"slip", "roll", "left elbow", "right elbow"
+	];
+	const [enabledMoves, setEnabledMoves] = useState<string[]>(ALL_MOVES);
 
 	useEffect(() => {
 		getValueFor("groups", (val) => {
@@ -81,6 +92,11 @@ export default function SettingsScreen() {
 		});
 		getValueFor("selectedVoice", (v) => {
 			if (v) setSelectedVoice(v);
+		});
+		getValueFor("enabledMoves", (v) => {
+			if (v) {
+				try { setEnabledMoves(JSON.parse(v)); } catch(e) {}
+			}
 		});
 	}, []);
 
@@ -162,6 +178,38 @@ export default function SettingsScreen() {
 		setGroups(g => g.filter(grp => grp.id !== groupId));
 	};
 
+	const handleAIGenerate = () => {
+		if (enabledMoves.length === 0) {
+			Alert.alert("Error", "Please enable some moves first!");
+			return;
+		}
+
+		const numCombos = 5 + Math.floor(Math.random() * 5); // 5-10 combos
+		const newExercises = [];
+
+		for (let i = 0; i < numCombos; i++) {
+			const comboLength = 2 + Math.floor(Math.random() * 3); // 2-4 moves
+			const chosenMoves = [];
+			for (let j = 0; j < comboLength; j++) {
+				chosenMoves.push(enabledMoves[Math.floor(Math.random() * enabledMoves.length)]);
+			}
+			newExercises.push({
+				id: uuidv4(),
+				moves: chosenMoves,
+				repDelay: 2000 + Math.floor(Math.random() * 1000)
+			});
+		}
+
+		const newGroup: ExerciseGroup = {
+			id: uuidv4(),
+			name: `🔄 Generated Flow (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`,
+			exercises: newExercises
+		};
+
+		setGroups([...groups, newGroup]);
+		Alert.alert("Success", "Random Flow Generated!");
+	};
+
 	if (loading) return <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator /></View>;
 
 	return (
@@ -193,6 +241,40 @@ export default function SettingsScreen() {
 						</Card.Content>
 					</Card>
 
+					<Card style={[styles.groupCard, { backgroundColor: theme.colors.elevation.level2, marginTop: 20 }]}>
+						<Card.Title title="Combo Generator Library" subtitle="Toggle moves for the Random Generator" left={(props) => <IconButton {...props} icon="tools" />} />
+						<Card.Content>
+							<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+								{ALL_MOVES.map(m => {
+									const isEnabled = enabledMoves.includes(m);
+									return (
+										<Chip 
+											key={m} 
+											selected={isEnabled}
+											onPress={() => {
+												const next = isEnabled ? enabledMoves.filter(x => x !== m) : [...enabledMoves, m];
+												setEnabledMoves(next);
+												save("enabledMoves", JSON.stringify(next));
+											}}
+											mode={isEnabled ? "flat" : "outlined"}
+										>
+											{m}
+										</Chip>
+									);
+								})}
+							</View>
+							<Button 
+								mode="contained" 
+								icon="auto-fix" 
+								style={{ marginTop: 20 }} 
+								onPress={handleAIGenerate}
+								disabled={enabledMoves.length === 0}
+							>
+								Generate Random Routine
+							</Button>
+						</Card.Content>
+					</Card>
+
 					<Title style={{ marginTop: 20 }}>Training Groups Config</Title>
 					<Text style={{ color: theme.colors.secondary, marginBottom: 15 }}>Click Edit on any combo to modify or move it to a different group.</Text>
 
@@ -200,10 +282,10 @@ export default function SettingsScreen() {
 						<Card.Title title="Data Tools" subtitle="Export or overwrite configs" />
 						<Card.Content>
 							<View style={{ flexDirection: "row", gap: 10, marginBottom: 10 }}>
-								<Button compact mode="contained-tonal" icon="export" onPress={() => { copyToClipboard(JSON.stringify(groups)); ToastAndroid.show("Copied raw data to clipboard", ToastAndroid.SHORT); }}>
+								<Button compact mode="contained-tonal" icon="export" onPress={() => { copyToClipboard(JSON.stringify(groups)); }}>
 									Export
 								</Button>
-								<Button compact mode="outlined" icon="delete" onPress={() => { setGroups([]); ToastAndroid.show("Config wiped", ToastAndroid.SHORT); }}>
+								<Button compact mode="outlined" icon="delete" onPress={() => { setGroups([]); }}>
 									Clear All
 								</Button>
 							</View>
@@ -219,9 +301,9 @@ export default function SettingsScreen() {
 								try {
 									const val = JSON.parse(importData);
 									setGroups(val);
-									ToastAndroid.show("Imported config successfully", ToastAndroid.SHORT);
+									Alert.alert("Success", "Imported config successfully");
 								} catch (e) {
-									ToastAndroid.show("Invalid JSON configuration", ToastAndroid.SHORT);
+									Alert.alert("Error", "Invalid JSON configuration");
 								}
 							}}>Import</Button>
 						</Card.Content>
