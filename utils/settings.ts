@@ -1,29 +1,39 @@
 import * as Clipboard from "expo-clipboard";
 import * as SecureStore from "expo-secure-store";
+import { Platform } from 'react-native';
 
 export async function getValueFor(
 	key: string,
 	callback: (val: string | null) => void,
 ) {
 	try {
-        const result = await SecureStore.getItemAsync(key);
+        let result: string | null = null;
+        if (Platform.OS === 'web') {
+            result = localStorage.getItem(key);
+        } else {
+            result = await SecureStore.getItemAsync(key);
+        }
+
         if (result) {
             callback(result);
         } else {
-            console.log("No values stored under that key.");
             callback(null);
         }
     } catch (e) {
-        console.error("Error reading from secure store", e);
+        console.error("Error reading storage", e);
         callback(null);
     }
 }
 
 export async function save(key: string, value: string) {
 	try {
-        await SecureStore.setItemAsync(key, value);
+        if (Platform.OS === 'web') {
+            localStorage.setItem(key, value);
+        } else {
+            await SecureStore.setItemAsync(key, value);
+        }
     } catch (e) {
-        console.error("Error writing to secure store", e);
+        console.error("Error writing storage", e);
     }
 }
 

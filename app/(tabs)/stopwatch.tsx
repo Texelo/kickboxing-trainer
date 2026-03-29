@@ -34,17 +34,20 @@ export default function TrainerScreen() {
 	const [restSecs, setRestSecs] = useState(60);
 	const [currentRound, setCurrentRound] = useState(1);
 	const [phase, setPhase] = useState<'work' | 'rest'>('work');
-	const [totalDuration, setTotalDuration] = useState(0); // overall workout time
 	
 	const trainerRef = useRef<any>(null); // holds TrainerControls
 	const statusRef = useRef(status);
+	const totalDurationRef = useRef(0);
 	useEffect(() => { statusRef.current = status; }, [status]);
+
+	const selectedGroup = groups.find((g) => g.name === groupName);
 
 	const reset = () => {
 		setTime(0);
 		setIsCountdown(false);
 		setCurrentRound(1);
 		setPhase('work');
+		totalDurationRef.current = 0;
 	};
 
 	const handleStart = () => {
@@ -90,6 +93,14 @@ export default function TrainerScreen() {
 	};
 
 	const handleStop = () => {
+		if (status !== -1 && totalDurationRef.current > 50) { // Save session if spent more than 0.5s
+			saveWorkout({
+				date: new Date().toISOString(),
+				duration: Math.floor(totalDurationRef.current / 100),
+				rounds: currentRound,
+				group: selectedGroup?.name || "Freestyle"
+			});
+		}
 		setStatus(-1);
 		if (trainerRef.current) {
 			trainerRef.current.stop();
@@ -118,66 +129,64 @@ export default function TrainerScreen() {
 		let timerID: ReturnType<typeof setInterval>;
 		if (status === 1) {
 			timerID = setInterval(() => {
-				setTime((t) => {
-					if (isCountdown) {
-						if (t <= 1) {
-							// PHASE TRANSITION LOGIC
-							if (phase === 'work') {
-								// Round over!
-								if (currentRound >= numRounds) {
-									// FULL WORKOUT DONE
-									if (trainerRef.current) trainerRef.current.stop();
-									Speech.speak("Workout complete!", { voice: activeVoice });
-									
-									// Record to stats
-									saveWorkout({
-										date: new Date().toISOString(),
-										duration: Math.floor(totalDuration / 100), // convert 10ms ticks to seconds
-										rounds: currentRound,
-										group: selectedGroup?.name || "Freestyle"
-									});
-
-									setStatus(-1);
-									return 0;
-								} else {
-									// Move to Rest
-									Speech.speak(`Round over! ${restSecs} seconds rest.`, { voice: activeVoice });
-									if (trainerRef.current) trainerRef.current.pause();
-									setPhase('rest');
-									return restSecs * 100;
-								}
-							} else {
-								// Rest over, start next round!
-								const nextRound = currentRound + 1;
-								setCurrentRound(nextRound);
-								setPhase('work');
-								Speech.stop(); // Pre-emptive stop for ghost overlap
-								Speech.speak(`Round ${nextRound}`, { 
-									voice: activeVoice,
-									onDone: () => {
-										// 1.5s beat after "Let's go!" before combinations start
-										setTimeout(() => {
-											if (statusRef.current === 1 && trainerRef.current) {
-												trainerRef.current.restart();
-												trainerRef.current.resume();
-											}
-										}, 1000);
-									}
-								});
-								return workMins * 60 * 100;
-							}
-						}
-						return t - 1;
-					}
-					return t + 1;
-				});
-				setTotalDuration(d => d + 1);
+				setTime((t) => (isCountdown ? (t > 0 ? t - 1 : 0) : t + 1));
+				totalDurationRef.current += 1;
 			}, 10); // 10ms
 		} else if (status === -1) {
 			reset();
 		}
 		return () => clearInterval(timerID);
-	}, [status, isCountdown, activeVoice, phase, currentRound, numRounds, restSecs, workMins]);
+	}, [status, isCountdown]);
+
+	// Separate Side-Effect Watcher for Phase Transitions
+	useEffect(() => {
+		// Only trigger if timer hit zero AND we've actually been running (duration > 0)
+		if (status === 1 && isCountdown && time === 0 && totalDurationRef.current > 0) {
+			if (phase === 'work') {
+				// Round over!
+				if (currentRound >= numRounds) {
+					// FULL WORKOUT DONE
+					if (trainerRef.current) trainerRef.current.stop();
+					Speech.speak("Workout complete!", { voice: activeVoice });
+					
+					// Record to stats
+					saveWorkout({
+						date: new Date().toISOString(),
+						duration: Math.floor(totalDurationRef.current / 100), // convert 10ms ticks to seconds
+						rounds: currentRound,
+						group: selectedGroup?.name || "Freestyle"
+					});
+
+					setStatus(-1);
+				} else {
+					// Move to Rest
+					Speech.speak(`Round over! ${restSecs} seconds rest.`, { voice: activeVoice });
+					if (trainerRef.current) trainerRef.current.pause();
+					setPhase('rest');
+					setTime(restSecs * 100);
+				}
+			} else if (phase === 'rest') {
+				// Rest over, start next round!
+				const nextRound = currentRound + 1;
+				setCurrentRound(nextRound);
+				setPhase('work');
+				Speech.stop(); // Pre-emptive stop for ghost overlap
+				Speech.speak(`Round ${nextRound}`, { 
+					voice: activeVoice,
+					onDone: () => {
+						// 1.5s beat after "Let's go!" before combinations start
+						setTimeout(() => {
+							if (statusRef.current === 1 && trainerRef.current) {
+								trainerRef.current.restart();
+								trainerRef.current.resume();
+							}
+						}, 1000);
+					}
+				});
+				setTime(workMins * 60 * 100);
+			}
+		}
+	}, [time, status, isCountdown, phase, currentRound, numRounds, restSecs, workMins, activeVoice, selectedGroup]);
 
 	const DEFAULT_GROUPS: Array<ExerciseGroup> = [
 		{
@@ -239,7 +248,7 @@ export default function TrainerScreen() {
 		}
 	}, [intensity]);
 
-	const selectedGroup = groups.find((g) => g.name === groupName);
+
 
 	return (
 		<View style={[styles.container, { backgroundColor: theme.colors.background }]}>
