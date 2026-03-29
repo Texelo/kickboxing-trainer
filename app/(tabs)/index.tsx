@@ -3,6 +3,7 @@ import { StyleSheet, View, ScrollView } from "react-native";
 import * as Speech from "expo-speech";
 import { Button, IconButton, Text, Surface, useTheme, Chip, Card, Divider } from "react-native-paper";
 import Slider from "@react-native-community/slider";
+import { useFocusEffect } from "expo-router";
 
 import { getValueFor } from "../../utils/settings";
 import trainer from "../../utils/trainer";
@@ -195,7 +196,7 @@ export default function TrainerScreen() {
 		}
 	];
 
-	const loadGroups = () => {
+	const loadGroups = React.useCallback(() => {
 		getValueFor("selectedVoice", (v) => {
 			if (v) setActiveVoice(v);
 		});
@@ -221,11 +222,13 @@ export default function TrainerScreen() {
 				setGroupName(parsed[0].name);
 			}
 		});
-	};
+	}, [groupName]);
 
-	useEffect(() => {
-		loadGroups();
-	}, []);
+	useFocusEffect(
+		React.useCallback(() => {
+			loadGroups();
+		}, [loadGroups])
+	);
 
 	useEffect(() => {
 		if (trainerRef.current) {
@@ -346,15 +349,6 @@ export default function TrainerScreen() {
 						))}
 					</View>
 				)}
-				
-				<Button 
-					mode="outlined" 
-					icon="sync" 
-					style={styles.actionButton}
-					onPress={loadGroups}
-				>
-					Refresh Config
-				</Button>
 			</View>
 		</View>
 	);
