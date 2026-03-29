@@ -9,21 +9,23 @@ export interface TrainerControls {
 	skip: () => void;
 	rewind: () => void;
 	updateSpeed: (factor: number) => void;
+	start: () => void;
+	restart: () => void;
 }
 
-export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifier?: string, initialSpeed: number = 1): TrainerControls {
+export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifier?: string, initialSpeed: number = 1, autoStart: boolean = true): TrainerControls {
 	let speedFactor = initialSpeed;
 	const initialDelay = 1000;
 	const reps = 3;
 	let index = 0;
 	let timeoutId: ReturnType<typeof setTimeout> | null = null;
 	let isActive = true;
-	let isPaused = false;
+	let isPaused = !autoStart;
 
 	let resumeTimeout = 0;
 	let startTime = 0;
 
-	if (!exercises || exercises.length === 0) return { pause: () => { }, resume: () => { }, stop: () => { }, skip: ()=>{}, rewind: ()=>{}, updateSpeed: ()=>{} };
+	if (!exercises || exercises.length === 0) return { pause: () => { }, resume: () => { }, stop: () => { }, skip: ()=>{}, rewind: ()=>{}, updateSpeed: ()=>{}, restart: ()=>{}, start: ()=>{} };
 
 	let exercise = exercises[index];
 	let rep = 0;
@@ -69,7 +71,7 @@ export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifie
 		});
 	};
 
-	func();
+	if (autoStart) func();
 	
 	const jump = (direction: number) => {
 		index = Math.max(0, Math.min(exercises.length - 1, index + direction));
@@ -109,7 +111,15 @@ export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifie
 			if (timeoutId) {
 				startTime = Date.now();
 				timeoutId = setTimeout(func, resumeTimeout);
+			} else if (!activelySpeaking) {
+				// Initial start or no pending timeout
+				func();
 			}
+		},
+		start: () => {
+			isActive = true;
+			isPaused = false;
+			func();
 		},
 		stop: () => {
 			isActive = false;
@@ -120,6 +130,7 @@ export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifie
 		rewind: () => jump(-1),
 		updateSpeed: (factor: number) => {
 			speedFactor = factor;
-		}
+		},
+		restart: () => jump(0)
 	};
 }

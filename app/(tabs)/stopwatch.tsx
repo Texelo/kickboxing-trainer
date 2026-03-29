@@ -37,6 +37,8 @@ export default function TrainerScreen() {
 	const [totalDuration, setTotalDuration] = useState(0); // overall workout time
 	
 	const trainerRef = useRef<any>(null); // holds TrainerControls
+	const statusRef = useRef(status);
+	useEffect(() => { statusRef.current = status; }, [status]);
 
 	const reset = () => {
 		setTime(0);
@@ -59,12 +61,26 @@ export default function TrainerScreen() {
 				targetExercises = [...targetExercises].sort(() => Math.random() - 0.5);
 			}
 
-			trainerRef.current = trainer(targetExercises, activeVoice, intensity);
+			trainerRef.current = trainer(targetExercises, activeVoice, intensity, false);
 			reset();
 			// If in round mode, set work time
 			setTime(workMins * 60 * 100);
 			setIsCountdown(true);
 			setStatus(1);
+
+			// Round 1 Intro
+			Speech.stop();
+			Speech.speak("Round 1", {
+				voice: activeVoice,
+				onDone: () => {
+					setTimeout(() => {
+						if (statusRef.current === 1 && trainerRef.current) {
+							trainerRef.current.restart();
+							trainerRef.current.resume();
+						}
+					}, 1000);
+				}
+			});
 		}
 	};
 
@@ -110,8 +126,8 @@ export default function TrainerScreen() {
 								// Round over!
 								if (currentRound >= numRounds) {
 									// FULL WORKOUT DONE
-									Speech.speak("Workout complete!", { voice: activeVoice });
 									if (trainerRef.current) trainerRef.current.stop();
+									Speech.speak("Workout complete!", { voice: activeVoice });
 									
 									// Record to stats
 									saveWorkout({
@@ -121,11 +137,11 @@ export default function TrainerScreen() {
 										group: selectedGroup?.name || "Freestyle"
 									});
 
-									setStatus(0);
+									setStatus(-1);
 									return 0;
 								} else {
 									// Move to Rest
-									Speech.speak("Round over!", { voice: activeVoice });
+									Speech.speak(`Round over! ${restSecs} seconds rest.`, { voice: activeVoice });
 									if (trainerRef.current) trainerRef.current.pause();
 									setPhase('rest');
 									return restSecs * 100;
@@ -135,9 +151,19 @@ export default function TrainerScreen() {
 								const nextRound = currentRound + 1;
 								setCurrentRound(nextRound);
 								setPhase('work');
-								Speech.stop(); // Clear out all queues
-								Speech.speak(`Round ${nextRound}! Let's go!`, { voice: activeVoice });
-								if (trainerRef.current) trainerRef.current.resume();
+								Speech.stop(); // Pre-emptive stop for ghost overlap
+								Speech.speak(`Round ${nextRound}`, { 
+									voice: activeVoice,
+									onDone: () => {
+										// 1.5s beat after "Let's go!" before combinations start
+										setTimeout(() => {
+											if (statusRef.current === 1 && trainerRef.current) {
+												trainerRef.current.restart();
+												trainerRef.current.resume();
+											}
+										}, 1000);
+									}
+								});
 								return workMins * 60 * 100;
 							}
 						}
@@ -286,9 +312,9 @@ export default function TrainerScreen() {
 						<View style={{ alignItems: 'center' }}>
 							<Text variant="labelSmall">Work (min)</Text>
 							<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-								<IconButton icon="minus" size={16} onPress={() => setWorkMins(Math.max(1, workMins - 1))} />
+								<IconButton icon="minus" size={16} onPress={() => setWorkMins(Math.max(0.2, workMins - 0.5))} />
 								<Text variant="titleMedium">{workMins}</Text>
-								<IconButton icon="plus" size={16} onPress={() => setWorkMins(workMins + 1)} />
+								<IconButton icon="plus" size={16} onPress={() => setWorkMins(workMins + 0.5)} />
 							</View>
 						</View>
 						<View style={{ width: 1, backgroundColor: theme.colors.outlineVariant, height: '80%', alignSelf: 'center' }} />
