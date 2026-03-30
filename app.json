@@ -35,7 +35,8 @@
       "expo-secure-store"
     ],
     "experiments": {
-      "typedRoutes": true
+      "typedRoutes": true,
+      "baseUrl": "/kickboxing-trainer"
     },
     "extra": {
       "router": {},

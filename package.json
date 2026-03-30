@@ -1,13 +1,15 @@
 {
   "name": "kickboxing-trainer",
   "main": "expo-router/entry",
-  "version": "1.0.0",
+  "homepage": "https://Texelo.github.io/kickboxing-trainer/",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test": "jest"
+    "test": "jest",
+    "build": "npx expo export --platform web && type nul > dist\\.nojekyll && copy dist\\index.html dist\\404.html",
+    "deploy": "npm run build && gh-pages -d dist"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -48,6 +50,7 @@
     "@testing-library/react-native": "^13.3.3",
     "@types/jest": "^30.0.0",
     "@types/react": "~19.1.0",
+    "gh-pages": "^6.3.0",
     "jest": "^29.7.0",
     "jest-expo": "^55.0.11",
     "react-test-renderer": "19.1.0",
