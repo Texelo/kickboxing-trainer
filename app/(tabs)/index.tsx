@@ -37,7 +37,35 @@ export default function TrainerScreen() {
 	const trainerRef = useRef<any>(null);
 	const statusRef = useRef(status);
 	const totalDurationRef = useRef(0);
-	useEffect(() => { statusRef.current = status; }, [status]);
+
+	// The wake lock sentinel.
+	let wakeLock: WakeLockSentinel | null = null;
+
+	// Function that attempts to request a screen wake lock.
+	const requestWakeLock = async () => {
+		try {
+			wakeLock = await navigator.wakeLock.request();
+			wakeLock.addEventListener('release', () => {
+				console.log('Screen Wake Lock released:', wakeLock?.released);
+			});
+			console.log('Screen Wake Lock released:', wakeLock?.released);
+		} catch (err) {
+			if (err instanceof Error) {
+				console.error(`${err.name}, ${err.message}`);
+			}
+		}
+	};
+
+	useEffect(() => {
+		statusRef.current = status;
+		if (status === 1) {
+			requestWakeLock();
+		}
+		else {
+			wakeLock?.release();
+			wakeLock = null;
+		}
+	}, [status]);
 
 	const selectedGroup = groups.find((g) => g.name === groupName);
 

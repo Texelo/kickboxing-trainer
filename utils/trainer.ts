@@ -25,7 +25,7 @@ export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifie
 	let resumeTimeout = 0;
 	let startTime = 0;
 
-	if (!exercises || exercises.length === 0) return { pause: () => { }, resume: () => { }, stop: () => { }, skip: ()=>{}, rewind: ()=>{}, updateSpeed: ()=>{}, restart: ()=>{}, start: ()=>{} };
+	if (!exercises || exercises.length === 0) return { pause: () => { }, resume: () => { }, stop: () => { }, skip: () => { }, rewind: () => { }, updateSpeed: () => { }, restart: () => { }, start: () => { } };
 
 	let exercise = exercises[index];
 	let rep = 0;
@@ -72,15 +72,15 @@ export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifie
 	};
 
 	if (autoStart) func();
-	
+
 	const jump = (direction: number) => {
 		index = Math.max(0, Math.min(exercises.length - 1, index + direction));
 		rep = 0;
 		exercise = exercises[index];
-		
+
 		if (timeoutId && timeoutId !== 1 as any) clearTimeout(timeoutId);
 		if (activelySpeaking) Speech.stop();
-		
+
 		if (!isPaused) {
 			activelySpeaking = false;
 			func();

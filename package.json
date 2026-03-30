@@ -9,7 +9,7 @@
     "web": "expo start --web",
     "test": "jest",
     "build": "npx expo export --platform web && type nul > dist\\.nojekyll && copy dist\\index.html dist\\404.html",
-    "deploy": "npm run build && gh-pages -d dist"
+    "deploy": "npx workbox-cli generateSW workbox-config.js && npx gh-pages -d dist"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

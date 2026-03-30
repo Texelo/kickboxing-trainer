@@ -8,7 +8,7 @@ export default function Root({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <head>
-        <link rel="manifest" href="/manifest.json" />
+        <link rel="manifest" href="/kickboxing-trainer/manifest.json" />
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
@@ -33,7 +33,7 @@ export default function Root({ children }: { children: React.ReactNode }) {
 const sw = `
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').then(registration => {
+        navigator.serviceWorker.register('/kickboxing-trainer/sw.js').then(registration => {
             console.log('Service Worker registered with scope:', registration.scope);
         }).catch(error => {
             console.error('Service Worker registration failed:', error);
