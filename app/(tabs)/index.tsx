@@ -237,119 +237,121 @@ export default function TrainerScreen() {
 	}, [intensity]);
 
 	return (
-		<View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-			<Surface style={[styles.timeSurface, { backgroundColor: phase === 'rest' ? '#4a148c' : theme.colors.elevation.level2 }]} elevation={4}>
-				<Text variant="labelLarge" style={{ color: theme.colors.primary, textTransform: 'uppercase', letterSpacing: 2 }}>
-					Round {currentRound} of {numRounds}
-				</Text>
-				<Text variant="displayLarge" style={{ fontFamily: "monospace", fontWeight: "bold", fontSize: 60, color: phase === 'rest' ? '#e1bee7' : theme.colors.primary }}>
-					{formatTime(time)}
-				</Text>
-				<Text variant="titleMedium" style={{ color: theme.colors.secondary, textTransform: 'uppercase', fontWeight: '800' }}>
-					{phase}
-				</Text>
-			</Surface>
-			
-			<View style={{ width: '100%', paddingVertical: 15, alignItems: 'center' }}>
-				<Text variant="labelLarge" style={{ color: theme.colors.secondary, marginBottom: 5 }}>
-					Intensity: {intensity === 1.0 ? 'Normal' : intensity > 1 ? 'Pro (Faster)' : 'Beginner (Slower)'}
-				</Text>
-				<Slider
-					style={{ width: 280, height: 40 }}
-					minimumValue={0.5}
-					maximumValue={1.5}
-					step={0.1}
-					value={intensity}
-					onValueChange={(val: number) => setIntensity(val)}
-					minimumTrackTintColor={theme.colors.primary}
-					maximumTrackTintColor={theme.colors.secondary}
-				/>
-			</View>
-
-			<View style={styles.controlsRow}>
-				<IconButton icon="skip-previous" size={40} iconColor={theme.colors.secondary} onPress={handleRewind} disabled={status === -1} />
+		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+			<ScrollView contentContainerStyle={[styles.container, { paddingBottom: 40 }]}>
+				<Surface style={[styles.timeSurface, { backgroundColor: phase === 'rest' ? '#4a148c' : theme.colors.elevation.level2 }]} elevation={4}>
+					<Text variant="labelLarge" style={{ color: theme.colors.primary, textTransform: 'uppercase', letterSpacing: 2 }}>
+						Round {currentRound} of {numRounds}
+					</Text>
+					<Text variant="displayLarge" style={{ fontFamily: "monospace", fontWeight: "bold", fontSize: 60, color: phase === 'rest' ? '#e1bee7' : theme.colors.primary }}>
+						{formatTime(time)}
+					</Text>
+					<Text variant="titleMedium" style={{ color: theme.colors.secondary, textTransform: 'uppercase', fontWeight: '800' }}>
+						{phase}
+					</Text>
+				</Surface>
 				
-				{status !== 1 && (
-					<IconButton 
-						icon="play-circle" 
-						size={60} 
-						iconColor={theme.colors.primary} 
-						disabled={!selectedGroup || selectedGroup.exercises.length === 0}
-						onPress={handleStart}
+				<View style={{ width: '100%', paddingVertical: 15, alignItems: 'center' }}>
+					<Text variant="labelLarge" style={{ color: theme.colors.secondary, marginBottom: 5 }}>
+						Intensity: {intensity === 1.0 ? 'Normal' : intensity > 1 ? 'Pro (Faster)' : 'Beginner (Slower)'}
+					</Text>
+					<Slider
+						style={{ width: 280, height: 40 }}
+						minimumValue={0.5}
+						maximumValue={1.5}
+						step={0.1}
+						value={intensity}
+						onValueChange={(val: number) => setIntensity(val)}
+						minimumTrackTintColor={theme.colors.primary}
+						maximumTrackTintColor={theme.colors.secondary}
 					/>
-				)}
-				{status === 1 && (
-					<IconButton icon="pause-circle" size={60} iconColor={theme.colors.secondary} onPress={handlePause} />
-				)}
-				<IconButton icon="stop-circle" size={60} iconColor={theme.colors.error} onPress={handleStop} disabled={status === -1} />
-				
-				<IconButton icon="skip-next" size={40} iconColor={theme.colors.secondary} onPress={handleSkip} disabled={status === -1} />
-			</View>
-
-			<View style={{ flexDirection: 'row', gap: 10, justifyContent: 'center' }}>
-				<Button mode={isShuffle ? "contained" : "contained-tonal"} icon="shuffle" onPress={() => setIsShuffle(!isShuffle)}>Shuffle</Button>
-				<Button mode="contained-tonal" icon="timer" onPress={() => startRest(30)}>30s</Button>
-				<Button mode="contained-tonal" icon="timer" onPress={() => startRest(60)}>60s</Button>
-			</View>
-
-			<View style={styles.trainerSetup}>
-				<Card style={{ backgroundColor: theme.colors.elevation.level1, marginBottom: 10 }} mode="contained">
-					<Card.Content style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
-						<View style={{ alignItems: 'center' }}>
-							<Text variant="labelSmall">Rounds</Text>
-							<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-								<IconButton icon="minus" size={16} onPress={() => setNumRounds(Math.max(1, numRounds - 1))} />
-								<Text variant="titleMedium">{numRounds}</Text>
-								<IconButton icon="plus" size={16} onPress={() => setNumRounds(numRounds + 1)} />
+				</View>
+	
+				<View style={styles.controlsRow}>
+					<IconButton icon="skip-previous" size={40} iconColor={theme.colors.secondary} onPress={handleRewind} disabled={status === -1} />
+					
+					{status !== 1 && (
+						<IconButton 
+							icon="play-circle" 
+							size={60} 
+							iconColor={theme.colors.primary} 
+							disabled={!selectedGroup || selectedGroup.exercises.length === 0}
+							onPress={handleStart}
+						/>
+					)}
+					{status === 1 && (
+						<IconButton icon="pause-circle" size={60} iconColor={theme.colors.secondary} onPress={handlePause} />
+					)}
+					<IconButton icon="stop-circle" size={60} iconColor={theme.colors.error} onPress={handleStop} disabled={status === -1} />
+					
+					<IconButton icon="skip-next" size={40} iconColor={theme.colors.secondary} onPress={handleSkip} disabled={status === -1} />
+				</View>
+	
+				<View style={{ flexDirection: 'row', gap: 10, justifyContent: 'center' }}>
+					<Button mode={isShuffle ? "contained" : "contained-tonal"} icon="shuffle" onPress={() => setIsShuffle(!isShuffle)}>Shuffle</Button>
+					<Button mode="contained-tonal" icon="timer" onPress={() => startRest(30)}>30s</Button>
+					<Button mode="contained-tonal" icon="timer" onPress={() => startRest(60)}>60s</Button>
+				</View>
+	
+				<View style={styles.trainerSetup}>
+					<Card style={{ backgroundColor: theme.colors.elevation.level1, marginBottom: 10 }} mode="contained">
+						<Card.Content style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
+							<View style={{ alignItems: 'center' }}>
+								<Text variant="labelSmall">Rounds</Text>
+								<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+									<IconButton icon="minus" size={16} onPress={() => setNumRounds(Math.max(1, numRounds - 1))} />
+									<Text variant="titleMedium">{numRounds}</Text>
+									<IconButton icon="plus" size={16} onPress={() => setNumRounds(numRounds + 1)} />
+								</View>
 							</View>
-						</View>
-						<View style={{ width: 1, backgroundColor: theme.colors.outlineVariant, height: '80%', alignSelf: 'center' }} />
-						<View style={{ alignItems: 'center' }}>
-							<Text variant="labelSmall">Work (min)</Text>
-							<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-								<IconButton icon="minus" size={16} onPress={() => setWorkMins(Math.max(0.2, workMins - 0.5))} />
-								<Text variant="titleMedium">{workMins}</Text>
-								<IconButton icon="plus" size={16} onPress={() => setWorkMins(workMins + 0.5)} />
+							<View style={{ width: 1, backgroundColor: theme.colors.outlineVariant, height: '80%', alignSelf: 'center' }} />
+							<View style={{ alignItems: 'center' }}>
+								<Text variant="labelSmall">Work (min)</Text>
+								<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+									<IconButton icon="minus" size={16} onPress={() => setWorkMins(Math.max(0.2, workMins - 0.5))} />
+									<Text variant="titleMedium">{workMins}</Text>
+									<IconButton icon="plus" size={16} onPress={() => setWorkMins(workMins + 0.5)} />
+								</View>
 							</View>
-						</View>
-						<View style={{ width: 1, backgroundColor: theme.colors.outlineVariant, height: '80%', alignSelf: 'center' }} />
-						<View style={{ alignItems: 'center' }}>
-							<Text variant="labelSmall">Rest (sec)</Text>
-							<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-								<IconButton icon="minus" size={16} onPress={() => setRestSecs(Math.max(10, restSecs - 10))} />
-								<Text variant="titleMedium">{restSecs}</Text>
-								<IconButton icon="plus" size={16} onPress={() => setRestSecs(restSecs + 10)} />
+							<View style={{ width: 1, backgroundColor: theme.colors.outlineVariant, height: '80%', alignSelf: 'center' }} />
+							<View style={{ alignItems: 'center' }}>
+								<Text variant="labelSmall">Rest (sec)</Text>
+								<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+									<IconButton icon="minus" size={16} onPress={() => setRestSecs(Math.max(10, restSecs - 10))} />
+									<Text variant="titleMedium">{restSecs}</Text>
+									<IconButton icon="plus" size={16} onPress={() => setRestSecs(restSecs + 10)} />
+								</View>
 							</View>
-						</View>
-					</Card.Content>
-				</Card>
-
-				<Text variant="titleSmall" style={{ alignSelf: 'center', marginBottom: 10, color: theme.colors.outline }}>Select Training Sequence</Text>
-				<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 15, marginBottom: 20 }}>
-					{groups.length === 0 && <Chip icon="alert">No groups available</Chip>}
-					{groups.map((g) => (
-						<Chip
-							key={g.id}
-							mode={groupName === g.name ? "flat" : "outlined"}
-							selected={groupName === g.name}
-							onPress={() => setGroupName(g.name)}
-							style={groupName === g.name ? { backgroundColor: theme.colors.primaryContainer } : { backgroundColor: theme.colors.elevation.level1 }}
-						>
-							{g.name}
-						</Chip>
-					))}
-				</ScrollView>
-
-				{selectedGroup && selectedGroup.exercises.length > 0 && (
-					<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 15, marginBottom: 20, justifyContent: 'center' }}>
-						{selectedGroup.exercises.map(ex => (
-							<Chip key={ex.id} compact style={{ backgroundColor: theme.colors.elevation.level2 }} textStyle={{ fontSize: 13, color: theme.colors.secondary }}>
-								{ex.moves.join(" • ")}
+						</Card.Content>
+					</Card>
+	
+					<Text variant="titleSmall" style={{ alignSelf: 'center', marginBottom: 10, color: theme.colors.outline }}>Select Training Sequence</Text>
+					<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 15, marginBottom: 20 }}>
+						{groups.length === 0 && <Chip icon="alert">No groups available</Chip>}
+						{groups.map((g) => (
+							<Chip
+								key={g.id}
+								mode={groupName === g.name ? "flat" : "outlined"}
+								selected={groupName === g.name}
+								onPress={() => setGroupName(g.name)}
+								style={groupName === g.name ? { backgroundColor: theme.colors.primaryContainer } : { backgroundColor: theme.colors.elevation.level1 }}
+							>
+								{g.name}
 							</Chip>
 						))}
-					</View>
-				)}
-			</View>
+					</ScrollView>
+	
+					{selectedGroup && selectedGroup.exercises.length > 0 && (
+						<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 15, marginBottom: 20, justifyContent: 'center' }}>
+							{selectedGroup.exercises.map(ex => (
+								<Chip key={ex.id} compact style={{ backgroundColor: theme.colors.elevation.level2 }} textStyle={{ fontSize: 13, color: theme.colors.secondary }}>
+									{ex.moves.join(" • ")}
+								</Chip>
+							))}
+						</View>
+					)}
+				</View>
+			</ScrollView>
 		</View>
 	);
 }

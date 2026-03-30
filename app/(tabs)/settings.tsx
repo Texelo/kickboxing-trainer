@@ -47,8 +47,7 @@ export default function SettingsScreen() {
 	const [delayEdit, setDelayEdit] = useState<number>(1.5);
 	const [targetGroupEdit, setTargetGroupEdit] = useState<string>("");
 
-	// AI Generator States
-	const ALL_MOVES = [
+	const DEFAULT_MOVE_POOL = [
 		"jab", "cross", "left hook", "right hook", "left uppercut", "right uppercut", 
 		"lead knee", "rear knee", 
 		"lead roundhouse", "rear roundhouse", 
@@ -56,7 +55,17 @@ export default function SettingsScreen() {
 		"lead push kick", "rear push kick", 
 		"slip", "roll", "left elbow", "right elbow"
 	];
-	const [enabledMoves, setEnabledMoves] = useState<string[]>(ALL_MOVES);
+
+	const [movePool, setMovePool] = useState<string[]>(DEFAULT_MOVE_POOL);
+	const [isEditingLibrary, setIsEditingLibrary] = useState(false);
+	const [newMoveInput, setNewMoveInput] = useState("");
+
+	const [isManualMode, setIsManualMode] = useState(false);
+	const [manualComboMoves, setManualComboMoves] = useState<string[]>([]);
+	const [selectedManualGroupId, setSelectedManualGroupId] = useState<string>("");
+	const [manualDelay, setManualDelay] = useState(2.0);
+
+	const [enabledMoves, setEnabledMoves] = useState<string[]>(DEFAULT_MOVE_POOL);
 
 	useEffect(() => {
 		getValueFor("groups", (val) => {
@@ -93,6 +102,11 @@ export default function SettingsScreen() {
 		getValueFor("selectedVoice", (v) => {
 			if (v) setSelectedVoice(v);
 		});
+		getValueFor("movePool", (v) => {
+			if (v) {
+				try { setMovePool(JSON.parse(v)); } catch(e) {}
+			}
+		});
 		getValueFor("enabledMoves", (v) => {
 			if (v) {
 				try { setEnabledMoves(JSON.parse(v)); } catch(e) {}
@@ -104,6 +118,63 @@ export default function SettingsScreen() {
 		if (loading) return;
 		save("groups", JSON.stringify(groups));
 	}, [groups, loading]);
+
+	useEffect(() => {
+		if (loading) return;
+		save("movePool", JSON.stringify(movePool));
+	}, [movePool, loading]);
+
+	const addToMovePool = () => {
+		const trimmed = newMoveInput.trim().toLowerCase();
+		if (trimmed && !movePool.includes(trimmed)) {
+			setMovePool([...movePool, trimmed]);
+			setEnabledMoves([...enabledMoves, trimmed]);
+			setNewMoveInput("");
+		}
+	};
+
+	const removeFromMovePool = (move: string) => {
+		setMovePool(movePool.filter(m => m !== move));
+		setEnabledMoves(enabledMoves.filter(m => m !== move));
+	};
+
+	const addMoveToManualCombo = (move: string) => {
+		setManualComboMoves([...manualComboMoves, move]);
+	};
+
+	const removeMoveFromManualCombo = (index: number) => {
+		const next = [...manualComboMoves];
+		next.splice(index, 1);
+		setManualComboMoves(next);
+	};
+
+	const saveManualCombo = () => {
+		if (manualComboMoves.length === 0) {
+			Alert.alert("Error", "Add some moves to the combo first!");
+			return;
+		}
+		const targetId = selectedManualGroupId || (groups.length > 0 ? groups[0].id : null);
+		if (!targetId) {
+			Alert.alert("Error", "Please create a training group first.");
+			return;
+		}
+
+		const newEx = {
+			id: uuidv4(),
+			moves: manualComboMoves,
+			repDelay: manualDelay * 1000
+		};
+
+		setGroups(g => g.map(grp => {
+			if (grp.id === targetId) {
+				return { ...grp, exercises: [...grp.exercises, newEx] };
+			}
+			return grp;
+		}));
+
+		setManualComboMoves([]);
+		Alert.alert("Success", "Combo saved to group!");
+	};
 
 	const appendNewGroup = () => {
 		const nId = uuidv4();
@@ -242,20 +313,106 @@ export default function SettingsScreen() {
 					</Card>
 
 					<Card style={[styles.groupCard, { backgroundColor: theme.colors.elevation.level2, marginTop: 20 }]}>
-						<Card.Title title="Combo Generator Library" subtitle="Toggle moves for the Random Generator" left={(props) => <IconButton {...props} icon="tools" />} />
+						<Card.Title 
+							title="Combo Generator & Library" 
+							subtitle={isManualMode ? "Manual Combo Builder" : "Random Generator Moves"} 
+							left={(props) => <IconButton {...props} icon="auto-fix" />}
+							right={(props) => (
+								<View style={{ flexDirection: 'row' }}>
+									<IconButton {...props} icon={isEditingLibrary ? "check" : "pencil"} onPress={() => setIsEditingLibrary(!isEditingLibrary)} />
+									<IconButton {...props} icon={isManualMode ? "dice-5" : "gesture-tap"} onPress={() => setIsManualMode(!isManualMode)} />
+								</View>
+							)}
+						/>
 						<Card.Content>
+							{isManualMode ? (
+								<View style={{ marginBottom: 20, padding: 10, borderRadius: 10, backgroundColor: theme.colors.elevation.level3 }}>
+									<Title style={{ fontSize: 16 }}>Current Combo Builder</Title>
+									<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginVertical: 10, minHeight: 40 }}>
+										{manualComboMoves.map((m, idx) => (
+											<Chip key={`${m}-${idx}`} onClose={() => removeMoveFromManualCombo(idx)} style={{ backgroundColor: theme.colors.primaryContainer }}>{m}</Chip>
+										))}
+										{manualComboMoves.length === 0 && <Text style={{ color: theme.colors.secondary, fontStyle: 'italic' }}>Click moves below to build...</Text>}
+									</View>
+
+									<View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 }}>
+										<View style={{ flex: 2, borderRadius: 8, overflow: 'hidden', backgroundColor: theme.colors.elevation.level4 }}>
+											<Picker
+												selectedValue={selectedManualGroupId || (groups.length > 0 ? groups[0].id : "")}
+												onValueChange={(v) => setSelectedManualGroupId(v)}
+												style={{ color: theme.colors.onSurface }}
+												dropdownIconColor={theme.colors.onSurface}
+											>
+												{groups.map(g => <Picker.Item key={g.id} label={`Save to: ${g.name}`} value={g.id} />)}
+											</Picker>
+										</View>
+										<Button mode="contained" icon="content-save" onPress={saveManualCombo} style={{ flex: 1 }}>Save</Button>
+										<IconButton icon="refresh" onPress={() => setManualComboMoves([])} />
+									</View>
+
+									<View style={{ marginTop: 15 }}>
+										<Text variant="bodySmall">Combo Delay: {manualDelay.toFixed(1)}s</Text>
+										<Slider
+											style={{ width: "100%", height: 30 }}
+											value={manualDelay}
+											onValueChange={setManualDelay}
+											minimumValue={0.5}
+											maximumValue={5}
+											step={0.1}
+											minimumTrackTintColor={theme.colors.primary}
+										/>
+									</View>
+								</View>
+							) : (
+								<Button 
+									mode="contained" 
+									icon="auto-fix" 
+									style={{ marginBottom: 20 }} 
+									onPress={handleAIGenerate}
+									disabled={enabledMoves.length === 0}
+								>
+									Generate Random Routine
+								</Button>
+							)}
+
+							<Divider style={{ marginBottom: 15 }} />
+							
+							{isEditingLibrary && (
+								<View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 15 }}>
+									<TextInput 
+										label="Add New Move" 
+										value={newMoveInput} 
+										onChangeText={setNewMoveInput} 
+										style={{ flex: 1, height: 45 }}
+										mode="outlined"
+									/>
+									<IconButton 
+										icon="plus-circle" 
+										size={32} 
+										iconColor={theme.colors.primary} 
+										onPress={addToMovePool}
+										disabled={!newMoveInput.trim()}
+									/>
+								</View>
+							)}
+
 							<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-								{ALL_MOVES.map(m => {
+								{movePool.map(m => {
 									const isEnabled = enabledMoves.includes(m);
 									return (
 										<Chip 
 											key={m} 
 											selected={isEnabled}
 											onPress={() => {
-												const next = isEnabled ? enabledMoves.filter(x => x !== m) : [...enabledMoves, m];
-												setEnabledMoves(next);
-												save("enabledMoves", JSON.stringify(next));
+												if (isManualMode) {
+													addMoveToManualCombo(m);
+												} else {
+													const next = isEnabled ? enabledMoves.filter(x => x !== m) : [...enabledMoves, m];
+													setEnabledMoves(next);
+													save("enabledMoves", JSON.stringify(next));
+												}
 											}}
+											onClose={isEditingLibrary ? () => removeFromMovePool(m) : undefined}
 											mode={isEnabled ? "flat" : "outlined"}
 										>
 											{m}
@@ -263,15 +420,6 @@ export default function SettingsScreen() {
 									);
 								})}
 							</View>
-							<Button 
-								mode="contained" 
-								icon="auto-fix" 
-								style={{ marginTop: 20 }} 
-								onPress={handleAIGenerate}
-								disabled={enabledMoves.length === 0}
-							>
-								Generate Random Routine
-							</Button>
 						</Card.Content>
 					</Card>
 
