@@ -2,13 +2,16 @@ import Slider from "@react-native-community/slider";
 import { useFocusEffect } from "expo-router";
 import * as Speech from "expo-speech";
 import React, { useEffect, useRef, useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import { Button, Card, Chip, IconButton, Surface, Text, useTheme } from "react-native-paper";
-
-import { getValueFor } from "../../utils/settings";
+import * as Linking from 'expo-linking';
+import * as FileSystem from 'expo-file-system/legacy';
+import { decodeGroup } from "../../utils/backup";
+import { getValueFor, save } from "../../utils/settings";
 import { saveWorkout } from "../../utils/stats";
 import trainer from "../../utils/trainer";
 import type { ExerciseGroup } from "../../utils/types";
+import { Platform } from 'react-native';
 
 function formatTime(timeVal: number) {
 	const totalSeconds = Math.floor(timeVal / 100);
@@ -171,6 +174,82 @@ export default function TrainerScreen() {
 		}
 		return () => clearInterval(timerID);
 	}, [status, isCountdown]);
+
+	const importWorkout = async (content: string) => {
+		if (content && content.trim().startsWith('{')) {
+			try {
+				const parsed = JSON.parse(content);
+				if (parsed.n && parsed.e) {
+					// Single group
+					const decoded = decodeGroup(content);
+					if (decoded.name && decoded.exercises) {
+						getValueFor("groups", (val) => {
+							let existing = [];
+							try { if (val) existing = JSON.parse(val); } catch (e) {}
+							const updated = [...existing, decoded];
+							save("groups", JSON.stringify(updated));
+							setGroups(updated as ExerciseGroup[]);
+							Alert.alert("Workout Imported", `"${decoded.name}" has been added to your training library.`);
+						});
+					}
+				} else if (parsed.groups && Array.isArray(parsed.groups)) {
+					// Full backup
+					Alert.alert(
+						"Import Backup",
+						"This file contains a full backup. Do you want to replace your current library?",
+						[
+							{ text: "Cancel", style: "cancel" },
+							{ text: "Replace All", onPress: () => {
+								save("groups", JSON.stringify(parsed.groups));
+								setGroups(parsed.groups);
+								Alert.alert("Success", "Library restored from backup.");
+							}}
+						]
+					);
+				}
+			} catch (e) {
+				console.error("Import parsing error", e);
+			}
+		}
+	};
+
+	useEffect(() => {
+		const handleDeepLink = async (url: string | null) => {
+			if (!url) return;
+			const cleanUrl = decodeURIComponent(url);
+			if (cleanUrl.toLowerCase().endsWith('.kbx') || cleanUrl.startsWith('content://')) {
+				try {
+					const content = await FileSystem.readAsStringAsync(cleanUrl);
+					if (content) await importWorkout(content);
+				} catch (e) {
+					console.error("Deep link import error", e);
+				}
+			}
+		};
+
+		// PWA File Handling support
+		if (Platform.OS === 'web' && 'launchQueue' in window) {
+			(window as any).launchQueue.setConsumer(async (launchParams: any) => {
+				if (launchParams.files && launchParams.files.length > 0) {
+					try {
+						const fileHandle = launchParams.files[0];
+						const file = await fileHandle.getFile();
+						const content = await file.text();
+						if (content) await importWorkout(content);
+					} catch (e) {
+						console.error("PWA file handler error", e);
+					}
+				}
+			});
+		}
+
+		const subscription = Linking.addEventListener('url', (event) => {
+			handleDeepLink(event.url);
+		});
+
+		Linking.getInitialURL().then(handleDeepLink);
+		return () => subscription.remove();
+	}, [groups]);
 
 	useEffect(() => {
 		if (status === 1 && isCountdown && time === 0 && totalDurationRef.current > 0) {

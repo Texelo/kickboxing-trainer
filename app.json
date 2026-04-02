@@ -14,7 +14,27 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.jack.hulme.kickboxingtrainer",
+      "infoPlist": {
+        "CFBundleDocumentTypes": [
+          {
+            "CFBundleTypeName": "Kickboxing Workout",
+            "LSItemContentTypes": ["com.jack.hulme.kickboxingtrainer.kbx"],
+            "LSHandlerRank": "Owner"
+          }
+        ],
+        "UTExportedTypeDeclarations": [
+          {
+            "UTTypeIdentifier": "com.jack.hulme.kickboxingtrainer.kbx",
+            "UTTypeTagSpecification": {
+              "public.filename-extension": ["kbx"]
+            },
+            "UTTypeDescription": "Kickboxing Workout",
+            "UTTypeConformsTo": ["public.data"]
+          }
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +43,17 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.jack.hulme.kickboxingtrainer"
+      "package": "com.jack.hulme.kickboxingtrainer",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            { "scheme": "content", "host": "*", "mimeType": "*/*", "pathPattern": ".*\\.kbx" },
+            { "scheme": "file", "host": "*", "mimeType": "*/*", "pathPattern": ".*\\.kbx" }
+          ],
+          "category": ["DEFAULT", "BROWSABLE"]
+        }
+      ]
     },
     "web": {
       "bundler": "metro",

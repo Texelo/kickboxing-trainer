@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from "uuid";
 
 import { copyToClipboard, getValueFor, save } from "../../utils/settings";
 import type { ExerciseGroup } from "../../utils/types";
+import { decodeGroup, encodeGroup, shareBackupFile, importBackupFile } from "../../utils/backup";
 
 const DEFAULT_GROUPS: Array<ExerciseGroup> = [
 	{
@@ -281,6 +282,67 @@ export default function SettingsScreen() {
 		Alert.alert("Success", "Random Flow Generated!");
 	};
 
+	const handleShareGroup = async (group: ExerciseGroup) => {
+		const encoded = encodeGroup(group);
+		Alert.alert(
+			"Share Training Sequence",
+			"Choose how you want to share this workout:",
+			[
+				{ text: "Copy Short Code", onPress: () => { copyToClipboard(encoded); Alert.alert("Copied!", "Short code copied to clipboard. Others can paste this into their import field."); } },
+				{ text: "Share as File", onPress: async () => { await shareBackupFile([group], movePool, enabledMoves); } },
+				{ text: "Cancel", style: "cancel" }
+			]
+		);
+	};
+
+	const handleFullBackup = async () => {
+		await shareBackupFile(groups, movePool, enabledMoves);
+	};
+
+	const handleFullImport = async () => {
+		const data = await importBackupFile();
+		if (data) {
+			setGroups(data.groups);
+			setMovePool(data.movePool || DEFAULT_MOVE_POOL);
+			setEnabledMoves(data.enabledMoves || DEFAULT_MOVE_POOL);
+			Alert.alert("Success", "Backup restored successfully!");
+		}
+	};
+
+	const handlePasteImport = async () => {
+		if (!importData.trim()) {
+			Alert.alert("Error", "Paste some data first!");
+			return;
+		}
+
+		try {
+			// Try to detect if it's a short code or raw JSON
+			if (importData.trim().startsWith('{')) {
+				const parsed = JSON.parse(importData);
+				// If it's a list of groups
+				if (Array.isArray(parsed)) {
+					setGroups(parsed);
+					Alert.alert("Success", "Imported all groups");
+				} else if (parsed.n && parsed.e) {
+					// It's a single encoded group (as JSON object)
+					const decoded = decodeGroup(importData);
+					if (decoded.name && decoded.exercises) {
+						setGroups([...groups, decoded as ExerciseGroup]);
+						Alert.alert("Success", `Imported "${decoded.name}"`);
+						setImportData("");
+					}
+				} else {
+					throw new Error("Unknown format");
+				}
+			} else {
+				// Assume it's an encoded string format if I add one later (not implemented yet)
+				throw new Error("Invalid format");
+			}
+		} catch (e) {
+			Alert.alert("Error", "Invalid configuration format.");
+		}
+	};
+
 	if (loading) return <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator /></View>;
 
 	return (
@@ -426,34 +488,42 @@ export default function SettingsScreen() {
 					<Title style={{ marginTop: 20 }}>Training Groups Config</Title>
 					<Text style={{ color: theme.colors.secondary, marginBottom: 15 }}>Click Edit on any combo to modify or move it to a different group.</Text>
 
-					<Card mode="outlined">
-						<Card.Title title="Data Tools" subtitle="Export or overwrite configs" />
+					<Title style={{ marginTop: 20 }}>Backup & Data Tools</Title>
+					<Card mode="elevated" style={{ backgroundColor: theme.colors.elevation.level1 }}>
+						<Card.Title 
+							title="Backup & Restore" 
+							subtitle="Share sequences or your whole library" 
+							left={(props) => <IconButton {...props} icon="cloud-sync" />}
+						/>
 						<Card.Content>
-							<View style={{ flexDirection: "row", gap: 10, marginBottom: 10 }}>
-								<Button compact mode="contained-tonal" icon="export" onPress={() => { copyToClipboard(JSON.stringify(groups)); }}>
-									Export
+							<View style={{ flexDirection: "row", gap: 10, marginBottom: 20 }}>
+								<Button compact mode="contained" icon="share-variant" onPress={handleFullBackup} style={{ flex: 1 }}>
+									Full Backup
 								</Button>
-								<Button compact mode="outlined" icon="delete" onPress={() => { setGroups([]); }}>
-									Clear All
+								<Button compact mode="outlined" icon="file-import" onPress={handleFullImport} style={{ flex: 1 }}>
+									Import File
 								</Button>
 							</View>
-							<Divider style={{ marginVertical: 10 }} />
+							
+							<Divider style={{ marginBottom: 20 }} />
+
+							<Text variant="titleSmall" style={{ marginBottom: 10 }}>Import from Clipboard</Text>
 							<TextInput
-								label="Paste Config to Import"
+								label="Paste Code/JSON here"
 								value={importData}
 								onChangeText={setImportData}
 								mode="outlined"
-								style={[styles.input, { height: 45, fontSize: 13 }]}
+								multiline
+								style={[styles.input, { height: 80, fontSize: 12 }]}
 							/>
-							<Button mode="contained" onPress={() => {
-								try {
-									const val = JSON.parse(importData);
-									setGroups(val);
-									Alert.alert("Success", "Imported config successfully");
-								} catch (e) {
-									Alert.alert("Error", "Invalid JSON configuration");
-								}
-							}}>Import</Button>
+							<View style={{ flexDirection: 'row', gap: 10 }}>
+								<Button mode="contained-tonal" icon="clipboard-arrow-down" onPress={handlePasteImport} style={{ flex: 1 }}>
+									Import Pasted
+								</Button>
+								<Button mode="text" icon="delete-sweep" textColor={theme.colors.error} onPress={() => setGroups([])}>
+									Clear All
+								</Button>
+							</View>
 						</Card.Content>
 					</Card>
 				</View>
@@ -467,6 +537,7 @@ export default function SettingsScreen() {
 								title={isEditingGroup ? "" : group.name}
 								right={(props) => (
 									<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+										<IconButton {...props} icon="share-variant-outline" onPress={() => handleShareGroup(group)} />
 										<Button compact onPress={() => addExerciseToGroup(group.id)}>+ Combo</Button>
 										{!isEditingGroup && <IconButton {...props} icon="pencil" onPress={() => { setEditingGroupId(group.id); setGroupNameEdit(group.name); }} />}
 										{!isEditingGroup && <IconButton {...props} iconColor={theme.colors.error} icon="delete" onPress={() => deleteGroup(group.id)} />}

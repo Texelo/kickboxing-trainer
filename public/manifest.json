@@ -10,6 +10,15 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+	"theme_color": "#000000",
+	"background_color": "#ffffff",
+	"file_handlers": [
+		{
+			"action": ".",
+			"accept": {
+				"application/x-kickboxing": [".kbx"]
+			},
+			"launch_type": "single-client"
+		}
+	]
 }
