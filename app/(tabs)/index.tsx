@@ -134,11 +134,22 @@ export default function TrainerScreen() {
 	};
 
 	const handleSkip = () => {
-		if (trainerRef.current) trainerRef.current.skip();
+		if (phase === 'rest') {
+			setTime(0);
+		} else if (trainerRef.current) {
+			trainerRef.current.skip();
+		} else if (status === 1 && isCountdown) {
+			// Skip standalone rests/countdowns
+			setTime(0);
+		}
 	};
 
 	const handleRewind = () => {
-		if (trainerRef.current) trainerRef.current.rewind();
+		if (phase === 'rest') {
+			setTime(restSecs * 100);
+		} else if (trainerRef.current) {
+			trainerRef.current.rewind();
+		}
 	};
 
 	const startRest = (seconds: number) => {
