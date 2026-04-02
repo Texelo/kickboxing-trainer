@@ -28,18 +28,32 @@ const MOVE_ENCODING: Record<string, string> = {
 const MOVE_DECODING: Record<string, string> = Object.entries(MOVE_ENCODING).reduce((acc, [k, v]) => ({ ...acc, [v]: k }), {});
 
 export function encodeGroup(group: ExerciseGroup): string {
-	const minified = {
-		n: group.name,
-		e: group.exercises.map(ex => ({
-			m: ex.moves.map(m => MOVE_ENCODING[m.toLowerCase()] || m).join(","),
-			d: ex.repDelay
-		}))
-	};
-	return JSON.stringify(minified);
+	const exercises = group.exercises.map(ex => {
+		const moves = ex.moves.map(m => MOVE_ENCODING[m.toLowerCase()] || m).join(",");
+		return `${moves}:${ex.repDelay}`;
+	}).join(";");
+	
+	// Format: Version|Name|Ex1;Ex2... where Ex is moves:delay
+	return `KBX1|${group.name.replace(/[|;]/g, " ")}|${exercises}`;
 }
 
 export function decodeGroup(encoded: string): Partial<ExerciseGroup> {
 	try {
+		if (encoded.trim().startsWith("KBX1|")) {
+			const parts = encoded.trim().split("|");
+			const name = parts[1];
+			const exercises = parts[2].split(";").map((p, idx) => {
+				const [moves, delay] = p.split(":");
+				return {
+					id: `imported-${idx}-${Date.now()}`,
+					moves: moves.split(",").map(m => MOVE_DECODING[m] || m),
+					repDelay: parseInt(delay) || 1500
+				};
+			});
+			return { name, exercises };
+		}
+		
+		// Fallback for older JSON format
 		const parsed = JSON.parse(encoded);
 		if (!parsed.n || !parsed.e) throw new Error("Invalid format");
 		

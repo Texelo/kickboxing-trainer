@@ -3,7 +3,7 @@ import { Picker } from "@react-native-picker/picker";
 import * as Speech from "expo-speech";
 import React, { useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
-import { ActivityIndicator, Button, Card, Chip, Divider, FAB, IconButton, Text, TextInput, Title, useTheme } from "react-native-paper";
+import { ActivityIndicator, Button, Card, Chip, Dialog, Divider, FAB, IconButton, Paragraph, Portal, Snackbar, Text, TextInput, Title, useTheme } from "react-native-paper";
 import { v4 as uuidv4 } from "uuid";
 
 import { copyToClipboard, getValueFor, save } from "../../utils/settings";
@@ -67,6 +67,10 @@ export default function SettingsScreen() {
 	const [manualDelay, setManualDelay] = useState(2.0);
 
 	const [enabledMoves, setEnabledMoves] = useState<string[]>(DEFAULT_MOVE_POOL);
+	const [shareModalVisible, setShareModalVisible] = useState(false);
+	const [groupToShare, setGroupToShare] = useState<ExerciseGroup | null>(null);
+	const [snackbarVisible, setSnackbarVisible] = useState(false);
+	const [snackbarMsg, setSnackbarMsg] = useState("");
 
 	useEffect(() => {
 		getValueFor("groups", (val) => {
@@ -282,17 +286,14 @@ export default function SettingsScreen() {
 		Alert.alert("Success", "Random Flow Generated!");
 	};
 
-	const handleShareGroup = async (group: ExerciseGroup) => {
-		const encoded = encodeGroup(group);
-		Alert.alert(
-			"Share Training Sequence",
-			"Choose how you want to share this workout:",
-			[
-				{ text: "Copy Short Code", onPress: () => { copyToClipboard(encoded); Alert.alert("Copied!", "Short code copied to clipboard. Others can paste this into their import field."); } },
-				{ text: "Share as File", onPress: async () => { await shareBackupFile([group], movePool, enabledMoves); } },
-				{ text: "Cancel", style: "cancel" }
-			]
-		);
+	const handleShareGroup = (group: ExerciseGroup) => {
+		setGroupToShare(group);
+		setShareModalVisible(true);
+	};
+
+	const showSnack = (msg: string) => {
+		setSnackbarMsg(msg);
+		setSnackbarVisible(true);
 	};
 
 	const handleFullBackup = async () => {
@@ -316,16 +317,27 @@ export default function SettingsScreen() {
 		}
 
 		try {
-			// Try to detect if it's a short code or raw JSON
-			if (importData.trim().startsWith('{')) {
-				const parsed = JSON.parse(importData);
+			const trimmed = importData.trim();
+			if (trimmed.startsWith('KBX1|')) {
+				const decoded = decodeGroup(trimmed);
+				if (decoded.name && decoded.exercises) {
+					setGroups([...groups, decoded as ExerciseGroup]);
+					Alert.alert("Success", `Imported "${decoded.name}"`);
+					setImportData("");
+				}
+				return;
+			}
+
+			// Try to detect if it's a raw JSON
+			if (trimmed.startsWith('{')) {
+				const parsed = JSON.parse(trimmed);
 				// If it's a list of groups
 				if (Array.isArray(parsed)) {
 					setGroups(parsed);
 					Alert.alert("Success", "Imported all groups");
 				} else if (parsed.n && parsed.e) {
-					// It's a single encoded group (as JSON object)
-					const decoded = decodeGroup(importData);
+					// It's a single encoded group (as JSON object) - backward compatibility
+					const decoded = decodeGroup(trimmed);
 					if (decoded.name && decoded.exercises) {
 						setGroups([...groups, decoded as ExerciseGroup]);
 						Alert.alert("Success", `Imported "${decoded.name}"`);
@@ -335,7 +347,6 @@ export default function SettingsScreen() {
 					throw new Error("Unknown format");
 				}
 			} else {
-				// Assume it's an encoded string format if I add one later (not implemented yet)
 				throw new Error("Invalid format");
 			}
 		} catch (e) {
@@ -621,6 +632,56 @@ export default function SettingsScreen() {
 				style={[styles.fab, { backgroundColor: theme.colors.primaryContainer }]}
 				onPress={appendNewGroup}
 			/>
+
+			<Portal>
+				<Dialog visible={shareModalVisible} onDismiss={() => setShareModalVisible(false)} theme={{ colors: { elevation: { level3: theme.colors.elevation.level2 } } }}>
+					<Dialog.Title>Share Training Sequence</Dialog.Title>
+					<Dialog.Content>
+						<Paragraph>Choose how you want to share "{groupToShare?.name}":</Paragraph>
+					</Dialog.Content>
+					<Dialog.Actions style={{ flexDirection: 'column', gap: 8, paddingHorizontal: 20, paddingBottom: 20 }}>
+						<Button 
+							mode="contained" 
+							icon="content-copy" 
+							style={{ width: '100%' }}
+							onPress={() => {
+								if (groupToShare) {
+									const encoded = encodeGroup(groupToShare);
+									copyToClipboard(encoded);
+									setShareModalVisible(false);
+									showSnack("Short code copied to clipboard!");
+								}
+							}}
+						>
+							Copy Short Code
+						</Button>
+						<Button 
+							mode="contained-tonal" 
+							icon="file-download" 
+							style={{ width: '100%' }}
+							onPress={async () => {
+								if (groupToShare) {
+									await shareBackupFile([groupToShare], movePool, enabledMoves);
+									setShareModalVisible(false);
+								}
+							}}
+						>
+							Share as File (.kbx)
+						</Button>
+						<Button onPress={() => setShareModalVisible(false)} style={{ width: '100%' }}>Cancel</Button>
+					</Dialog.Actions>
+				</Dialog>
+			</Portal>
+
+			<Snackbar
+				visible={snackbarVisible}
+				onDismiss={() => setSnackbarVisible(false)}
+				duration={3000}
+				style={{ backgroundColor: theme.colors.inverseSurface }}
+				action={{ label: 'OK', onPress: () => setSnackbarVisible(false) }}
+			>
+				{snackbarMsg}
+			</Snackbar>
 		</View>
 	);
 }

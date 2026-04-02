@@ -176,8 +176,23 @@ export default function TrainerScreen() {
 	}, [status, isCountdown]);
 
 	const importWorkout = async (content: string) => {
-		if (content && content.trim().startsWith('{')) {
+		if (content && (content.trim().startsWith('{') || content.trim().startsWith('KBX1|'))) {
 			try {
+				if (content.trim().startsWith('KBX1|')) {
+					const decoded = decodeGroup(content);
+					if (decoded.name && decoded.exercises) {
+						getValueFor("groups", (val) => {
+							let existing = [];
+							try { if (val) existing = JSON.parse(val); } catch (e) {}
+							const updated = [...existing, decoded];
+							save("groups", JSON.stringify(updated));
+							setGroups(updated as ExerciseGroup[]);
+							Alert.alert("Workout Imported", `"${decoded.name}" has been added to your training library.`);
+						});
+					}
+					return;
+				}
+
 				const parsed = JSON.parse(content);
 				if (parsed.n && parsed.e) {
 					// Single group
