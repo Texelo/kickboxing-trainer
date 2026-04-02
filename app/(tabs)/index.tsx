@@ -12,6 +12,7 @@ import { saveWorkout } from "../../utils/stats";
 import trainer from "../../utils/trainer";
 import type { ExerciseGroup } from "../../utils/types";
 import { Platform } from 'react-native';
+import { DEFAULT_GROUPS } from "../../utils/defaults";
 
 function formatTime(timeVal: number) {
 	const totalSeconds = Math.floor(timeVal / 100);
@@ -176,55 +177,72 @@ export default function TrainerScreen() {
 	}, [status, isCountdown]);
 
 	const importWorkout = async (content: string) => {
-		if (content && (content.trim().startsWith('{') || content.trim().startsWith('KBX1|'))) {
-			try {
-				if (content.trim().startsWith('KBX1|')) {
-					const decoded = decodeGroup(content);
-					if (decoded.name && decoded.exercises) {
-						getValueFor("groups", (val) => {
-							let existing = [];
-							try { if (val) existing = JSON.parse(val); } catch (e) {}
-							const updated = [...existing, decoded];
-							save("groups", JSON.stringify(updated));
-							setGroups(updated as ExerciseGroup[]);
-							Alert.alert("Workout Imported", `"${decoded.name}" has been added to your training library.`);
-						});
-					}
-					return;
-				}
+		const trimmed = content.trim();
+		if (!trimmed || (!trimmed.startsWith('{') && !trimmed.startsWith('KBX1|'))) return;
 
-				const parsed = JSON.parse(content);
+		try {
+			let group: Partial<ExerciseGroup> | null = null;
+			let isFullBackup = false;
+			let backupData: any = null;
+
+			if (trimmed.startsWith('KBX1|')) {
+				group = decodeGroup(trimmed);
+			} else {
+				const parsed = JSON.parse(trimmed);
 				if (parsed.n && parsed.e) {
-					// Single group
-					const decoded = decodeGroup(content);
-					if (decoded.name && decoded.exercises) {
-						getValueFor("groups", (val) => {
-							let existing = [];
-							try { if (val) existing = JSON.parse(val); } catch (e) {}
-							const updated = [...existing, decoded];
-							save("groups", JSON.stringify(updated));
-							setGroups(updated as ExerciseGroup[]);
-							Alert.alert("Workout Imported", `"${decoded.name}" has been added to your training library.`);
-						});
-					}
+					group = decodeGroup(trimmed);
 				} else if (parsed.groups && Array.isArray(parsed.groups)) {
-					// Full backup
-					Alert.alert(
-						"Import Backup",
-						"This file contains a full backup. Do you want to replace your current library?",
-						[
-							{ text: "Cancel", style: "cancel" },
-							{ text: "Replace All", onPress: () => {
-								save("groups", JSON.stringify(parsed.groups));
-								setGroups(parsed.groups);
-								Alert.alert("Success", "Library restored from backup.");
-							}}
-						]
-					);
+					isFullBackup = true;
+					backupData = parsed;
 				}
-			} catch (e) {
-				console.error("Import parsing error", e);
 			}
+
+			if (group && group.name && group.exercises) {
+				const decodedGroup = group as ExerciseGroup;
+				const newMoves = decodedGroup.exercises.flatMap(ex => ex.moves).map(m => m.toLowerCase());
+
+				getValueFor("groups", (val) => {
+					let existing = [];
+					try { if (val) existing = JSON.parse(val); } catch (e) {}
+					const updated = [...existing, decodedGroup];
+					save("groups", JSON.stringify(updated));
+					setGroups(updated as ExerciseGroup[]);
+
+					// Auto-expand move library
+					getValueFor("movePool", (mp) => {
+						let pool = [];
+						try { if (mp) pool = JSON.parse(mp); } catch(e) {}
+						const updatedPool = Array.from(new Set([...pool, ...newMoves]));
+						save("movePool", JSON.stringify(updatedPool));
+
+						getValueFor("enabledMoves", (em) => {
+							let enabled = [];
+							try { if (em) enabled = JSON.parse(em); } catch(e) {}
+							const updatedEnabled = Array.from(new Set([...enabled, ...newMoves]));
+							save("enabledMoves", JSON.stringify(updatedEnabled));
+						});
+					});
+
+					Alert.alert("Workout Imported", `"${decodedGroup.name}" added to your library.`);
+				});
+			} else if (isFullBackup) {
+				Alert.alert(
+					"Import Backup",
+					"This file contains a full backup. Do you want to replace your current library?",
+					[
+						{ text: "Cancel", style: "cancel" },
+						{ text: "Replace All", onPress: () => {
+							save("groups", JSON.stringify(backupData.groups));
+							setGroups(backupData.groups);
+							if (backupData.movePool) save("movePool", JSON.stringify(backupData.movePool));
+							if (backupData.enabledMoves) save("enabledMoves", JSON.stringify(backupData.enabledMoves));
+							Alert.alert("Success", "Library restored from backup.");
+						}}
+					]
+				);
+			}
+		} catch (e) {
+			console.error("Import parsing error", e);
 		}
 	};
 
@@ -308,26 +326,6 @@ export default function TrainerScreen() {
 		}
 	}, [time, status, isCountdown, phase, currentRound, numRounds, restSecs, workMins, activeVoice, selectedGroup]);
 
-	const DEFAULT_GROUPS: Array<ExerciseGroup> = [
-		{
-			id: "default-1",
-			name: "🥊 Beginner Combos",
-			exercises: [
-				{ id: "1", moves: ["jab", "cross"], repDelay: 1500 },
-				{ id: "2", moves: ["jab", "cross", "left hook"], repDelay: 2000 },
-				{ id: "3", moves: ["jab", "cross", "rear roundhouse"], repDelay: 2500 }
-			]
-		},
-		{
-			id: "default-2",
-			name: "🥋 Advanced Flow",
-			exercises: [
-				{ id: "4", moves: ["jab", "cross", "slip", "cross", "right hook"], repDelay: 3000 },
-				{ id: "5", moves: ["left hook", "cross", "rear knee"], repDelay: 3000 },
-				{ id: "6", moves: ["jab", "right uppercut", "left hook", "rear roundhouse"], repDelay: 3500 }
-			]
-		}
-	];
 
 	const loadGroups = React.useCallback(() => {
 		getValueFor("selectedVoice", (v) => {

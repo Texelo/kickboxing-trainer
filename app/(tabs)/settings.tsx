@@ -9,27 +9,8 @@ import { v4 as uuidv4 } from "uuid";
 import { copyToClipboard, getValueFor, save } from "../../utils/settings";
 import type { ExerciseGroup } from "../../utils/types";
 import { decodeGroup, encodeGroup, shareBackupFile, importBackupFile } from "../../utils/backup";
+import { DEFAULT_GROUPS, DEFAULT_MOVE_POOL } from "../../utils/defaults";
 
-const DEFAULT_GROUPS: Array<ExerciseGroup> = [
-	{
-		id: "default-1",
-		name: "🥊 Beginner Combos",
-		exercises: [
-			{ id: "1", moves: ["jab", "cross"], repDelay: 1500 },
-			{ id: "2", moves: ["jab", "cross", "left hook"], repDelay: 2000 },
-			{ id: "3", moves: ["jab", "cross", "rear roundhouse"], repDelay: 2500 }
-		]
-	},
-	{
-		id: "default-2",
-		name: "🥋 Advanced Flow",
-		exercises: [
-			{ id: "4", moves: ["jab", "cross", "slip", "cross", "right hook"], repDelay: 3000 },
-			{ id: "5", moves: ["left hook", "cross", "rear knee"], repDelay: 3000 },
-			{ id: "6", moves: ["jab", "right uppercut", "left hook", "rear roundhouse"], repDelay: 3500 }
-		]
-	}
-];
 
 export default function SettingsScreen() {
 	const theme = useTheme();
@@ -48,14 +29,6 @@ export default function SettingsScreen() {
 	const [delayEdit, setDelayEdit] = useState<number>(1.5);
 	const [targetGroupEdit, setTargetGroupEdit] = useState<string>("");
 
-	const DEFAULT_MOVE_POOL = [
-		"jab", "cross", "left hook", "right hook", "left uppercut", "right uppercut", 
-		"lead knee", "rear knee", 
-		"lead roundhouse", "rear roundhouse", 
-		"lead side kick", "rear side kick", 
-		"lead push kick", "rear push kick", 
-		"slip", "roll", "left elbow", "right elbow"
-	];
 
 	const [movePool, setMovePool] = useState<string[]>(DEFAULT_MOVE_POOL);
 	const [isEditingLibrary, setIsEditingLibrary] = useState(false);
@@ -108,14 +81,32 @@ export default function SettingsScreen() {
 			if (v) setSelectedVoice(v);
 		});
 		getValueFor("movePool", (v) => {
+			let current = DEFAULT_MOVE_POOL;
 			if (v) {
-				try { setMovePool(JSON.parse(v)); } catch(e) {}
+				try { 
+					const parsed = JSON.parse(v);
+					if (Array.isArray(parsed)) {
+						// Merge missing defaults
+						const missing = DEFAULT_MOVE_POOL.filter(m => !parsed.includes(m));
+						current = [...parsed, ...missing];
+					}
+				} catch(e) {}
 			}
+			setMovePool(current);
 		});
 		getValueFor("enabledMoves", (v) => {
+			let current = DEFAULT_MOVE_POOL;
 			if (v) {
-				try { setEnabledMoves(JSON.parse(v)); } catch(e) {}
+				try { 
+					const parsed = JSON.parse(v);
+					if (Array.isArray(parsed)) {
+						// Merge missing defaults
+						const missing = DEFAULT_MOVE_POOL.filter(m => !parsed.includes(m));
+						current = [...parsed, ...missing];
+					}
+				} catch(e) {}
 			}
+			setEnabledMoves(current);
 		});
 	}, []);
 
@@ -318,34 +309,63 @@ export default function SettingsScreen() {
 
 		try {
 			const trimmed = importData.trim();
+			let importedGroup: ExerciseGroup | null = null;
+			let isFullBackup = false;
+			let backupData: any = null;
+
 			if (trimmed.startsWith('KBX1|')) {
 				const decoded = decodeGroup(trimmed);
-				if (decoded.name && decoded.exercises) {
-					setGroups([...groups, decoded as ExerciseGroup]);
-					Alert.alert("Success", `Imported "${decoded.name}"`);
-					setImportData("");
+				if (decoded.name && decoded.exercises) importedGroup = decoded as ExerciseGroup;
+			} else if (trimmed.startsWith('{')) {
+				const parsed = JSON.parse(trimmed);
+				if (Array.isArray(parsed)) {
+					isFullBackup = true;
+					backupData = { groups: parsed };
+				} else if (parsed.n && parsed.e) {
+					const decoded = decodeGroup(trimmed);
+					if (decoded.name && decoded.exercises) importedGroup = decoded as ExerciseGroup;
+				} else if (parsed.groups && Array.isArray(parsed.groups)) {
+					isFullBackup = true;
+					backupData = parsed;
 				}
-				return;
 			}
 
-			// Try to detect if it's a raw JSON
-			if (trimmed.startsWith('{')) {
-				const parsed = JSON.parse(trimmed);
-				// If it's a list of groups
-				if (Array.isArray(parsed)) {
-					setGroups(parsed);
-					Alert.alert("Success", "Imported all groups");
-				} else if (parsed.n && parsed.e) {
-					// It's a single encoded group (as JSON object) - backward compatibility
-					const decoded = decodeGroup(trimmed);
-					if (decoded.name && decoded.exercises) {
-						setGroups([...groups, decoded as ExerciseGroup]);
-						Alert.alert("Success", `Imported "${decoded.name}"`);
-						setImportData("");
-					}
-				} else {
-					throw new Error("Unknown format");
-				}
+			if (importedGroup) {
+				setGroups([...groups, importedGroup]);
+				
+				// Auto-expand move library
+				const newMoves = importedGroup.exercises.flatMap(ex => ex.moves).map(m => m.toLowerCase());
+				const updatedPool = Array.from(new Set([...movePool, ...newMoves]));
+				const updatedEnabled = Array.from(new Set([...enabledMoves, ...newMoves]));
+				
+				setMovePool(updatedPool);
+				setEnabledMoves(updatedEnabled);
+				save("movePool", JSON.stringify(updatedPool));
+				save("enabledMoves", JSON.stringify(updatedEnabled));
+
+				Alert.alert("Success", `Imported "${importedGroup.name}" and updated move library.`);
+				setImportData("");
+			} else if (isFullBackup) {
+				Alert.alert(
+					"Import Backup",
+					"This will replace your current library and moves. Continue?",
+					[
+						{ text: "Cancel", style: "cancel" },
+						{ text: "Replace All", onPress: () => {
+							setGroups(backupData.groups);
+							if (backupData.movePool) {
+								setMovePool(backupData.movePool);
+								save("movePool", JSON.stringify(backupData.movePool));
+							}
+							if (backupData.enabledMoves) {
+								setEnabledMoves(backupData.enabledMoves);
+								save("enabledMoves", JSON.stringify(backupData.enabledMoves));
+							}
+							Alert.alert("Success", "Full library restored.");
+							setImportData("");
+						}}
+					]
+				);
 			} else {
 				throw new Error("Invalid format");
 			}

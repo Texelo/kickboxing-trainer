@@ -22,7 +22,14 @@ const MOVE_ENCODING: Record<string, string> = {
 	"slip": "s",
 	"roll": "ro",
 	"left elbow": "le",
-	"right elbow": "re"
+	"right elbow": "re",
+	"low kick": "lowk",
+	"spinning hook kick": "sphk",
+	"switch low kick": "swlk",
+	"right body hook": "rbh",
+	"step through low kick": "stlk",
+	"spinning side kick": "spsk",
+	"recoil low kick": "rlk"
 };
 
 const MOVE_DECODING: Record<string, string> = Object.entries(MOVE_ENCODING).reduce((acc, [k, v]) => ({ ...acc, [v]: k }), {});
