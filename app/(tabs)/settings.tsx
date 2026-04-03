@@ -35,7 +35,8 @@ export default function SettingsScreen() {
 	const [newMoveInput, setNewMoveInput] = useState("");
 
 	const [isManualMode, setIsManualMode] = useState(false);
-	const [manualComboMoves, setManualComboMoves] = useState<string[]>([]);
+	const [manualCombos, setManualCombos] = useState<string[][]>([[]]);
+	const [activeManualComboIdx, setActiveManualComboIdx] = useState(0);
 	const [selectedManualGroupId, setSelectedManualGroupId] = useState<string>("");
 	const [manualDelay, setManualDelay] = useState(2.0);
 
@@ -51,12 +52,14 @@ export default function SettingsScreen() {
 				try {
 					const parsed = JSON.parse(val);
 					if (parsed && parsed.length > 0) {
-						// Ensure retro-compatibility with old array strings
+						// Ensure retro-compatibility with old and new formats
 						const normalized = parsed.map((g: any) => ({
 							...g,
 							exercises: g.exercises.map((ex: any) => ({
 								...ex,
-								moves: Array.isArray(ex.moves) ? ex.moves : (ex.moves ? ex.moves.split(" ") : [])
+								moves: Array.isArray(ex.moves)
+									? (Array.isArray(ex.moves[0]) ? ex.moves : [ex.moves])  // new format or old array format
+									: (ex.moves ? [ex.moves.split(" ")] : [[]])  // old string format
 							}))
 						}));
 						setGroups(normalized);
@@ -135,17 +138,20 @@ export default function SettingsScreen() {
 	};
 
 	const addMoveToManualCombo = (move: string) => {
-		setManualComboMoves([...manualComboMoves, move]);
+		const next = [...manualCombos];
+		next[activeManualComboIdx] = [...next[activeManualComboIdx], move];
+		setManualCombos(next);
 	};
 
 	const removeMoveFromManualCombo = (index: number) => {
-		const next = [...manualComboMoves];
-		next.splice(index, 1);
-		setManualComboMoves(next);
+		const next = [...manualCombos];
+		next[activeManualComboIdx] = next[activeManualComboIdx].filter((_, i) => i !== index);
+		setManualCombos(next);
 	};
 
 	const saveManualCombo = () => {
-		if (manualComboMoves.length === 0) {
+		const moves = manualCombos.filter(c => c.length > 0);
+		if (moves.length === 0) {
 			Alert.alert("Error", "Add some moves to the combo first!");
 			return;
 		}
@@ -157,7 +163,7 @@ export default function SettingsScreen() {
 
 		const newEx = {
 			id: uuidv4(),
-			moves: manualComboMoves,
+			moves,
 			repDelay: manualDelay * 1000
 		};
 
@@ -168,7 +174,8 @@ export default function SettingsScreen() {
 			return grp;
 		}));
 
-		setManualComboMoves([]);
+		setManualCombos([[]]);
+		setActiveManualComboIdx(0);
 		Alert.alert("Success", "Combo saved to group!");
 	};
 
@@ -185,7 +192,7 @@ export default function SettingsScreen() {
 			if (grp.id === groupId) {
 				return {
 					...grp,
-					exercises: [...grp.exercises, { id: exId, moves: ["new", "combo"], repDelay: 1500 }]
+					exercises: [...grp.exercises, { id: exId, moves: [["new", "combo"]], repDelay: 1500 }]
 				};
 			}
 			return grp;
@@ -202,14 +209,14 @@ export default function SettingsScreen() {
 	};
 
 	const saveExerciseEdit = (originalGroupId: string, exerciseId: string) => {
-		const parsedMoves = movesEdit.split(",").map(m => m.trim()).filter(Boolean);
+		const moves = movesEdit.split("+").map(part => part.split(",").map(m => m.trim()).filter(Boolean)).filter(c => c.length > 0);
 		// If group hasn't changed, simple update
 		if (originalGroupId === targetGroupEdit) {
 			setGroups(g => g.map(grp => {
 				if (grp.id === originalGroupId) {
 					return {
 						...grp,
-						exercises: grp.exercises.map(ex => ex.id === exerciseId ? { ...ex, moves: parsedMoves, repDelay: delayEdit * 1000 } : ex)
+						exercises: grp.exercises.map(ex => ex.id === exerciseId ? { ...ex, moves, repDelay: delayEdit * 1000 } : ex)
 					};
 				}
 				return grp;
@@ -223,7 +230,7 @@ export default function SettingsScreen() {
 					return grp;
 				});
 				updated = updated.map(grp => {
-					if (grp.id === targetGroupEdit) return { ...grp, exercises: [...grp.exercises, { id: exerciseId, moves: parsedMoves, repDelay: delayEdit * 1000 }] };
+					if (grp.id === targetGroupEdit) return { ...grp, exercises: [...grp.exercises, { id: exerciseId, moves, repDelay: delayEdit * 1000 }] };
 					return grp;
 				});
 				return updated;
@@ -262,7 +269,7 @@ export default function SettingsScreen() {
 			}
 			newExercises.push({
 				id: uuidv4(),
-				moves: chosenMoves,
+				moves: [chosenMoves],
 				repDelay: 2000 + Math.floor(Math.random() * 1000)
 			});
 		}
@@ -421,11 +428,61 @@ export default function SettingsScreen() {
 							{isManualMode ? (
 								<View style={{ marginBottom: 20, padding: 10, borderRadius: 10, backgroundColor: theme.colors.elevation.level3 }}>
 									<Title style={{ fontSize: 16 }}>Current Combo Builder</Title>
-									<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginVertical: 10, minHeight: 40 }}>
-										{manualComboMoves.map((m, idx) => (
-											<Chip key={`${m}-${idx}`} onClose={() => removeMoveFromManualCombo(idx)} style={{ backgroundColor: theme.colors.primaryContainer }}>{m}</Chip>
-										))}
-										{manualComboMoves.length === 0 && <Text style={{ color: theme.colors.secondary, fontStyle: 'italic' }}>Click moves below to build...</Text>}
+
+									{/* Show each combo phase */}
+									{manualCombos.map((combo, comboIdx) => (
+										<View key={comboIdx} style={{ marginBottom: 15 }}>
+											<View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+												<Text variant="labelSmall" style={{ color: theme.colors.secondary, fontWeight: '600' }}>
+													{comboIdx === 0 ? 'Base' : `+ Add-on ${comboIdx}`}
+												</Text>
+												{comboIdx > 0 && (
+													<IconButton
+														icon="delete-outline"
+														size={16}
+														iconColor={theme.colors.error}
+														onPress={() => {
+															const next = manualCombos.filter((_, i) => i !== comboIdx);
+															setManualCombos(next);
+															if (activeManualComboIdx >= next.length) setActiveManualComboIdx(Math.max(0, next.length - 1));
+														}}
+													/>
+												)}
+											</View>
+
+											<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, minHeight: 30, backgroundColor: activeManualComboIdx === comboIdx ? theme.colors.elevation.level2 : 'transparent', padding: 8, borderRadius: 6 }}>
+												{combo.map((m, mIdx) => (
+													<Chip
+														key={`${comboIdx}-${m}-${mIdx}`}
+														onClose={activeManualComboIdx === comboIdx ? () => {
+															const next = [...manualCombos];
+															next[comboIdx] = combo.filter((_, i) => i !== mIdx);
+															setManualCombos(next);
+														} : undefined}
+														style={{ backgroundColor: activeManualComboIdx === comboIdx ? theme.colors.primaryContainer : theme.colors.elevation.level1 }}
+													>
+														{m}
+													</Chip>
+												))}
+												{combo.length === 0 && activeManualComboIdx === comboIdx && (
+													<Text style={{ color: theme.colors.secondary, fontStyle: 'italic', alignSelf: 'center' }}>Click moves below...</Text>
+												)}
+											</View>
+										</View>
+									))}
+
+									<View style={{ flexDirection: 'row', gap: 8, marginBottom: 15 }}>
+										<Button
+											mode="contained-tonal"
+											icon="plus"
+											onPress={() => {
+												setManualCombos([...manualCombos, []]);
+												setActiveManualComboIdx(manualCombos.length);
+											}}
+											style={{ flex: 1 }}
+										>
+											Add Add-on
+										</Button>
 									</View>
 
 									<View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 }}>
@@ -440,7 +497,7 @@ export default function SettingsScreen() {
 											</Picker>
 										</View>
 										<Button mode="contained" icon="content-save" onPress={saveManualCombo} style={{ flex: 1 }}>Save</Button>
-										<IconButton icon="refresh" onPress={() => setManualComboMoves([])} />
+										<IconButton icon="refresh" onPress={() => { setManualCombos([[]]); setActiveManualComboIdx(0); }} />
 									</View>
 
 									<View style={{ marginTop: 15 }}>
@@ -590,7 +647,7 @@ export default function SettingsScreen() {
 									<View key={item.id} style={[styles.exerciseRow, { backgroundColor: isEditingEx ? theme.colors.elevation.level2 : "transparent" }]}>
 										{isEditingEx ? (
 											<View style={styles.editorContainer}>
-												<TextInput label="Moves (comma separated)" value={movesEdit} onChangeText={setMovesEdit} style={styles.input} />
+												<TextInput label="Moves (comma-sep, + for add-on)" value={movesEdit} onChangeText={setMovesEdit} style={styles.input} />
 
 												<Text style={{ marginTop: 15, marginBottom: 5 }}>Transfer to Group:</Text>
 												<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 5 }}>
@@ -626,13 +683,18 @@ export default function SettingsScreen() {
 											<>
 												<View style={{ flex: 1, paddingLeft: 10, paddingVertical: 5 }}>
 													<View style={{ flexDirection: "row", flexWrap: "wrap", gap: 5, marginBottom: 5 }}>
-														{item.moves.map((m, i) => <Chip key={i} compact style={{ backgroundColor: theme.colors.elevation.level3 }} textStyle={{ fontSize: 12 }}>{m}</Chip>)}
+														{item.moves.map((combo, ci) => (
+															<React.Fragment key={ci}>
+																{ci > 0 && <Text style={{ color: theme.colors.secondary, alignSelf: 'center' }}>+</Text>}
+																{combo.map((m, mi) => <Chip key={`${ci}-${mi}`} compact style={{ backgroundColor: theme.colors.elevation.level3 }} textStyle={{ fontSize: 12 }}>{m}</Chip>)}
+															</React.Fragment>
+														))}
 													</View>
 													<Text variant="bodySmall" style={{ color: theme.colors.secondary }}>{((item.repDelay ?? 1000) / 1000).toFixed(1)}s delay</Text>
 												</View>
 												<IconButton icon="pencil-outline" size={20} onPress={() => {
 													setEditingExerciseId(item.id);
-													setMovesEdit(item.moves.join(", "));
+													setMovesEdit(item.moves.map(c => c.join(", ")).join(" + "));
 													setDelayEdit((item.repDelay ?? 1000) / 1000);
 													setTargetGroupEdit(group.id);
 												}} />

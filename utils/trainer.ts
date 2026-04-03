@@ -30,23 +30,34 @@ export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifie
 	let exercise = exercises[index];
 	let rep = 0;
 	let activelySpeaking = false;
+	let addOnIndex = 0;  // 0 = base combo, 1+ = add-on index
+
+	const activeMoves = (): string[] => exercise.moves[addOnIndex] ?? exercise.moves[0];
 
 	const func = () => {
 		if (!isActive || isPaused) return;
 
 		if (rep > reps) {
-			index++;
-			if (index >= exercises.length) {
-				index = 0; // Infinite loop the set until the round timer kills us
+			if (addOnIndex < exercise.moves.length - 1) {
+				addOnIndex++;
+			} else {
+				index++;
+				if (index >= exercises.length) {
+					index = 0; // Infinite loop the set until the round timer kills us
+				}
+				exercise = exercises[index];
+				addOnIndex = 0;
 			}
 			rep = 0;
-			exercise = exercises[index];
 		}
 
 		timeoutId = null; // Clear so we know we're speaking
 		activelySpeaking = true;
 
-		const phrase = !rep ? (exercise.moves.join(", ") || "go") : Converter.toWords(rep);
+		const currentMoves = activeMoves();
+		const phrase = !rep
+			? (addOnIndex > 0 ? `add on, ${currentMoves.join(", ")}` : (currentMoves.join(", ") || "go"))
+			: Converter.toWords(rep);
 		const delay = !rep ? initialDelay : (exercise.repDelay ?? 1000) / speedFactor;
 
 		Speech.speak(phrase, {
@@ -76,6 +87,7 @@ export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifie
 	const jump = (direction: number) => {
 		index = Math.max(0, Math.min(exercises.length - 1, index + direction));
 		rep = 0;
+		addOnIndex = 0;  // Reset to base combo when jumping to a new exercise
 		exercise = exercises[index];
 
 		if (timeoutId && timeoutId !== 1 as any) clearTimeout(timeoutId);
@@ -131,6 +143,22 @@ export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifie
 		updateSpeed: (factor: number) => {
 			speedFactor = factor;
 		},
-		restart: () => jump(0)
+		restart: () => {
+			index = 0;
+			rep = 0;
+			addOnIndex = 0;
+			exercise = exercises[index];
+
+			if (timeoutId && timeoutId !== 1 as any) clearTimeout(timeoutId);
+			if (activelySpeaking) Speech.stop();
+
+			if (!isPaused) {
+				activelySpeaking = false;
+				func();
+			} else {
+				timeoutId = 1 as any;
+				resumeTimeout = 0;
+			}
+		}
 	};
 }

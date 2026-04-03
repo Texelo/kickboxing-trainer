@@ -8,7 +8,7 @@ export interface Move {
 
 export interface Exercise {
 	id: string;
-	moves: string[];
+	moves: string[][];  // moves[0] = base combo, moves[1..] = add-ons
 	repDelay?: number;
 	enabled?: boolean;
 }

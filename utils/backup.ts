@@ -36,11 +36,13 @@ const MOVE_DECODING: Record<string, string> = Object.entries(MOVE_ENCODING).redu
 
 export function encodeGroup(group: ExerciseGroup): string {
 	const exercises = group.exercises.map(ex => {
-		const moves = ex.moves.map(m => MOVE_ENCODING[m.toLowerCase()] || m).join(",");
+		const moves = ex.moves
+			.map(combo => combo.map(m => MOVE_ENCODING[m.toLowerCase()] || m).join(","))
+			.join("+");
 		return `${moves}:${ex.repDelay}`;
 	}).join(";");
-	
-	// Format: Version|Name|Ex1;Ex2... where Ex is moves:delay
+
+	// Format: Version|Name|Ex1;Ex2... where Ex is combos:delay (combos separated by +)
 	return `KBX1|${group.name.replace(/[|;]/g, " ")}|${exercises}`;
 }
 
@@ -50,25 +52,29 @@ export function decodeGroup(encoded: string): Partial<ExerciseGroup> {
 			const parts = encoded.trim().split("|");
 			const name = parts[1];
 			const exercises = parts[2].split(";").map((p, idx) => {
-				const [moves, delay] = p.split(":");
+				const [movesSection, delay] = p.split(":");
+				const comboParts = movesSection.split("+");
+				const moves = comboParts.map(part => part.split(",").map(m => MOVE_DECODING[m] || m));
 				return {
 					id: `imported-${idx}-${Date.now()}`,
-					moves: moves.split(",").map(m => MOVE_DECODING[m] || m),
+					moves,
 					repDelay: parseInt(delay) || 1500
 				};
 			});
 			return { name, exercises };
 		}
-		
+
 		// Fallback for older JSON format
 		const parsed = JSON.parse(encoded);
 		if (!parsed.n || !parsed.e) throw new Error("Invalid format");
-		
+
 		return {
 			name: parsed.n,
 			exercises: parsed.e.map((ex: any, idx: number) => ({
 				id: `imported-${idx}-${Date.now()}`,
-				moves: ex.m.split(",").map((m: string) => MOVE_DECODING[m] || m),
+				moves: Array.isArray(ex.m)
+					? (Array.isArray(ex.m[0]) ? ex.m : [ex.m])  // handle both old and new formats
+					: [ex.m.split(",")],  // old string format
 				repDelay: ex.d
 			}))
 		};

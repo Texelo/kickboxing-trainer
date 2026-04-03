@@ -120,7 +120,7 @@ export default function TrainerScreen() {
 	};
 
 	const handleStop = () => {
-		if (status !== -1 && totalDurationRef.current > 50) {
+		if (status !== -1 && totalDurationRef.current > 3000) {
 			saveWorkout({
 				date: new Date().toISOString(),
 				duration: Math.floor(totalDurationRef.current / 100),
@@ -199,7 +199,7 @@ export default function TrainerScreen() {
 
 			if (group && group.name && group.exercises) {
 				const decodedGroup = group as ExerciseGroup;
-				const newMoves = decodedGroup.exercises.flatMap(ex => ex.moves).map(m => m.toLowerCase());
+				const newMoves = decodedGroup.exercises.flatMap(ex => ex.moves.flat()).map(m => m.toLowerCase());
 
 				getValueFor("groups", (val) => {
 					let existing = [];
@@ -285,7 +285,7 @@ export default function TrainerScreen() {
 	}, [groups]);
 
 	useEffect(() => {
-		if (status === 1 && isCountdown && time === 0 && totalDurationRef.current > 0) {
+		if (status === 1 && isCountdown && time === 0 && totalDurationRef.current > 3000) {
 			if (phase === 'work') {
 				if (currentRound >= numRounds) {
 					if (trainerRef.current) trainerRef.current.stop();
@@ -341,7 +341,9 @@ export default function TrainerScreen() {
 							...g,
 							exercises: g.exercises.map((ex: any) => ({
 								...ex,
-								moves: Array.isArray(ex.moves) ? ex.moves : (ex.moves ? ex.moves.split(" ") : [])
+								moves: Array.isArray(ex.moves)
+									? (Array.isArray(ex.moves[0]) ? ex.moves : [ex.moves])  // new format or old array format
+									: (ex.moves ? [ex.moves.split(" ")] : [[]])  // old string format
 							}))
 						}));
 					}
@@ -366,6 +368,18 @@ export default function TrainerScreen() {
 			trainerRef.current.updateSpeed(intensity);
 		}
 	}, [intensity]);
+
+	useEffect(() => {
+		if (status !== -1) {
+			setStatus(-1);
+			if (trainerRef.current) {
+				trainerRef.current.stop();
+				trainerRef.current = null;
+			}
+			Speech.stop();
+			reset();
+		}
+	}, [groupName]);
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
@@ -475,9 +489,16 @@ export default function TrainerScreen() {
 					{selectedGroup && selectedGroup.exercises.length > 0 && (
 						<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 15, marginBottom: 20, justifyContent: 'center' }}>
 							{selectedGroup.exercises.map(ex => (
-								<Chip key={ex.id} compact style={{ backgroundColor: theme.colors.elevation.level2 }} textStyle={{ fontSize: 13, color: theme.colors.secondary }}>
-									{ex.moves.join(" • ")}
-								</Chip>
+								<View key={ex.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+									{ex.moves.map((combo, ci) => (
+										<React.Fragment key={ci}>
+											{ci > 0 && <Text style={{ color: theme.colors.secondary, fontWeight: 'bold' }}>+</Text>}
+											<Chip compact style={{ backgroundColor: theme.colors.elevation.level2 }} textStyle={{ fontSize: 13, color: theme.colors.secondary }}>
+												{combo.join(" • ")}
+											</Chip>
+										</React.Fragment>
+									))}
+								</View>
 							))}
 						</View>
 					)}
