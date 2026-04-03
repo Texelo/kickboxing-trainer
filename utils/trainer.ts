@@ -13,10 +13,10 @@ export interface TrainerControls {
 	restart: () => void;
 }
 
-export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifier?: string, initialSpeed: number = 1, autoStart: boolean = true): TrainerControls {
+export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifier?: string, initialSpeed: number = 1, autoStart: boolean = true, configReps: number = 3, repeatCombo: boolean = false): TrainerControls {
 	let speedFactor = initialSpeed;
 	const initialDelay = 1000;
-	const reps = 3;
+	const repOffset = repeatCombo ? 1 : 0;  // extra announcement before counting starts
 	let index = 0;
 	let timeoutId: ReturnType<typeof setTimeout> | null = null;
 	let isActive = true;
@@ -37,7 +37,7 @@ export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifie
 	const func = () => {
 		if (!isActive || isPaused) return;
 
-		if (rep > reps) {
+		if (rep > configReps + repOffset) {
 			if (addOnIndex < exercise.moves.length - 1) {
 				addOnIndex++;
 			} else {
@@ -55,10 +55,11 @@ export default function trainer(exercises: Array<Exercise>, activeVoiceIdentifie
 		activelySpeaking = true;
 
 		const currentMoves = activeMoves();
-		const phrase = !rep
+		const isComboAnnouncement = rep <= repOffset;
+		const phrase = isComboAnnouncement
 			? (addOnIndex > 0 ? `add on, ${currentMoves.join(", ")}` : (currentMoves.join(", ") || "go"))
-			: Converter.toWords(rep);
-		const delay = !rep ? initialDelay : (exercise.repDelay ?? 1000) / speedFactor;
+			: Converter.toWords(rep - repOffset);
+		const delay = isComboAnnouncement ? initialDelay : (exercise.repDelay ?? 1000) / speedFactor;
 
 		Speech.speak(phrase, {
 			voice: activeVoiceIdentifier,

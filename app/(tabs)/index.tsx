@@ -3,7 +3,7 @@ import { useFocusEffect } from "expo-router";
 import * as Speech from "expo-speech";
 import React, { useEffect, useRef, useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
-import { Button, Card, Chip, IconButton, Surface, Text, useTheme } from "react-native-paper";
+import { Button, Card, Chip, Divider, IconButton, Surface, Text, useTheme } from "react-native-paper";
 import * as Linking from 'expo-linking';
 import * as FileSystem from 'expo-file-system/legacy';
 import { decodeGroup } from "../../utils/backup";
@@ -35,6 +35,8 @@ export default function TrainerScreen() {
 	const [numRounds, setNumRounds] = useState(3);
 	const [workMins, setWorkMins] = useState(3);
 	const [restSecs, setRestSecs] = useState(60);
+	const [reps, setReps] = useState(3);
+	const [repeatCombo, setRepeatCombo] = useState(false);
 	const [currentRound, setCurrentRound] = useState(1);
 	const [phase, setPhase] = useState<'work' | 'rest'>('work');
 
@@ -93,7 +95,7 @@ export default function TrainerScreen() {
 				targetExercises = [...targetExercises].sort(() => Math.random() - 0.5);
 			}
 
-			trainerRef.current = trainer(targetExercises, activeVoice, intensity, false);
+			trainerRef.current = trainer(targetExercises, activeVoice, intensity, false, reps, repeatCombo);
 			reset();
 			setTime(workMins * 60 * 100);
 			setIsCountdown(true);
@@ -285,18 +287,20 @@ export default function TrainerScreen() {
 	}, [groups]);
 
 	useEffect(() => {
-		if (status === 1 && isCountdown && time === 0 && totalDurationRef.current > 3000) {
+		if (status === 1 && isCountdown && time === 0) {
 			if (phase === 'work') {
 				if (currentRound >= numRounds) {
 					if (trainerRef.current) trainerRef.current.stop();
 					Speech.speak("Workout complete!", { voice: activeVoice });
 
-					saveWorkout({
-						date: new Date().toISOString(),
-						duration: Math.floor(totalDurationRef.current / 100),
-						rounds: currentRound,
-						group: selectedGroup?.name || "Freestyle"
-					});
+					if (totalDurationRef.current > 3000) {
+						saveWorkout({
+							date: new Date().toISOString(),
+							duration: Math.floor(totalDurationRef.current / 100),
+							rounds: currentRound,
+							group: selectedGroup?.name || "Freestyle"
+						});
+					}
 
 					setStatus(-1);
 				} else {
@@ -440,31 +444,58 @@ export default function TrainerScreen() {
 
 				<View style={styles.trainerSetup}>
 					<Card style={{ backgroundColor: theme.colors.elevation.level1, marginBottom: 10 }} mode="contained">
-						<Card.Content style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
-							<View style={{ alignItems: 'center' }}>
-								<Text variant="labelSmall">Rounds</Text>
-								<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-									<IconButton icon="minus" size={16} onPress={() => setNumRounds(Math.max(1, numRounds - 1))} />
-									<Text variant="titleMedium">{numRounds}</Text>
-									<IconButton icon="plus" size={16} onPress={() => setNumRounds(numRounds + 1)} />
+						<Card.Content style={{ flexDirection: 'column' }}>
+							<View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
+								<View style={{ alignItems: 'center' }}>
+									<Text variant="labelSmall">Rounds</Text>
+									<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+										<IconButton icon="minus" size={16} onPress={() => setNumRounds(Math.max(1, numRounds - 1))} />
+										<Text variant="titleMedium">{numRounds}</Text>
+										<IconButton icon="plus" size={16} onPress={() => setNumRounds(numRounds + 1)} />
+									</View>
+								</View>
+								<View style={{ width: 1, backgroundColor: theme.colors.outlineVariant, height: '80%', alignSelf: 'center' }} />
+								<View style={{ alignItems: 'center' }}>
+									<Text variant="labelSmall">Work (min)</Text>
+									<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+										<IconButton icon="minus" size={16} onPress={() => setWorkMins(Math.max(0.5, workMins - 0.5))} />
+										<Text variant="titleMedium">{workMins}</Text>
+										<IconButton icon="plus" size={16} onPress={() => setWorkMins(workMins + 0.5)} />
+									</View>
+								</View>
+								<View style={{ width: 1, backgroundColor: theme.colors.outlineVariant, height: '80%', alignSelf: 'center' }} />
+								<View style={{ alignItems: 'center' }}>
+									<Text variant="labelSmall">Rest (sec)</Text>
+									<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+										<IconButton icon="minus" size={16} onPress={() => setRestSecs(Math.max(10, restSecs - 10))} />
+										<Text variant="titleMedium">{restSecs}</Text>
+										<IconButton icon="plus" size={16} onPress={() => setRestSecs(restSecs + 10)} />
+									</View>
 								</View>
 							</View>
-							<View style={{ width: 1, backgroundColor: theme.colors.outlineVariant, height: '80%', alignSelf: 'center' }} />
-							<View style={{ alignItems: 'center' }}>
-								<Text variant="labelSmall">Work (min)</Text>
-								<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-									<IconButton icon="minus" size={16} onPress={() => setWorkMins(Math.max(0.5, workMins - 0.5))} />
-									<Text variant="titleMedium">{workMins}</Text>
-									<IconButton icon="plus" size={16} onPress={() => setWorkMins(workMins + 0.5)} />
+
+							<Divider style={{ marginVertical: 12 }} />
+
+							<View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' }}>
+								<View style={{ alignItems: 'center' }}>
+									<Text variant="labelSmall">Reps</Text>
+									<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+										<IconButton icon="minus" size={16} onPress={() => setReps(Math.max(1, reps - 1))} />
+										<Text variant="titleMedium">{reps}</Text>
+										<IconButton icon="plus" size={16} onPress={() => setReps(reps + 1)} />
+									</View>
 								</View>
-							</View>
-							<View style={{ width: 1, backgroundColor: theme.colors.outlineVariant, height: '80%', alignSelf: 'center' }} />
-							<View style={{ alignItems: 'center' }}>
-								<Text variant="labelSmall">Rest (sec)</Text>
-								<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-									<IconButton icon="minus" size={16} onPress={() => setRestSecs(Math.max(10, restSecs - 10))} />
-									<Text variant="titleMedium">{restSecs}</Text>
-									<IconButton icon="plus" size={16} onPress={() => setRestSecs(restSecs + 10)} />
+								<View style={{ width: 1, backgroundColor: theme.colors.outlineVariant, height: '80%', alignSelf: 'center' }} />
+								<View style={{ alignItems: 'center' }}>
+									<Text variant="labelSmall">Repeat combo</Text>
+									<Button
+										mode={repeatCombo ? "contained" : "contained-tonal"}
+										icon="repeat"
+										onPress={() => setRepeatCombo(!repeatCombo)}
+										compact
+									>
+										{repeatCombo ? "On" : "Off"}
+									</Button>
 								</View>
 							</View>
 						</Card.Content>
@@ -489,16 +520,9 @@ export default function TrainerScreen() {
 					{selectedGroup && selectedGroup.exercises.length > 0 && (
 						<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 15, marginBottom: 20, justifyContent: 'center' }}>
 							{selectedGroup.exercises.map(ex => (
-								<View key={ex.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-									{ex.moves.map((combo, ci) => (
-										<React.Fragment key={ci}>
-											{ci > 0 && <Text style={{ color: theme.colors.secondary, fontWeight: 'bold' }}>+</Text>}
-											<Chip compact style={{ backgroundColor: theme.colors.elevation.level2 }} textStyle={{ fontSize: 13, color: theme.colors.secondary }}>
-												{combo.join(" • ")}
-											</Chip>
-										</React.Fragment>
-									))}
-								</View>
+								<Chip key={ex.id} compact style={{ backgroundColor: theme.colors.elevation.level2 }} textStyle={{ fontSize: 13, color: theme.colors.secondary }}>
+									{ex.moves.map((combo, ci) => (ci > 0 ? ` + ${combo.join(" • ")}` : combo.join(" • "))).join("")}
+								</Chip>
 							))}
 						</View>
 					)}

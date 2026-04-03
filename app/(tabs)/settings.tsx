@@ -1,7 +1,7 @@
 import Slider from "@react-native-community/slider";
 import { Picker } from "@react-native-picker/picker";
 import * as Speech from "expo-speech";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Button, Card, Chip, Dialog, Divider, FAB, IconButton, Paragraph, Portal, Snackbar, Text, TextInput, Title, useTheme } from "react-native-paper";
 import { v4 as uuidv4 } from "uuid";
@@ -34,7 +34,8 @@ export default function SettingsScreen() {
 	const [isEditingLibrary, setIsEditingLibrary] = useState(false);
 	const [newMoveInput, setNewMoveInput] = useState("");
 
-	const [isManualMode, setIsManualMode] = useState(false);
+	const scrollViewRef = useRef<ScrollView>(null);
+	const [isManualMode, setIsManualMode] = useState(true);
 	const [manualCombos, setManualCombos] = useState<string[][]>([[]]);
 	const [activeManualComboIdx, setActiveManualComboIdx] = useState(0);
 	const [selectedManualGroupId, setSelectedManualGroupId] = useState<string>("");
@@ -184,6 +185,7 @@ export default function SettingsScreen() {
 		setGroups([...groups, { id: nId, name: "New Group", exercises: [] }]);
 		setEditingGroupId(nId);
 		setGroupNameEdit("New Group");
+		setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
 	};
 
 	const addExerciseToGroup = (groupId: string) => {
@@ -281,7 +283,7 @@ export default function SettingsScreen() {
 		};
 
 		setGroups([...groups, newGroup]);
-		Alert.alert("Success", "Random Flow Generated!");
+		Alert.alert("Success", "Random Flow Generated!", [{ text: "OK", onPress: () => scrollViewRef.current?.scrollToEnd({ animated: true }) }]);
 	};
 
 	const handleShareGroup = (group: ExerciseGroup) => {
@@ -385,7 +387,7 @@ export default function SettingsScreen() {
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-			<ScrollView contentContainerStyle={{ paddingHorizontal: 15, paddingBottom: 100 }}>
+			<ScrollView ref={scrollViewRef} contentContainerStyle={{ paddingHorizontal: 15, paddingBottom: 100 }}>
 				<View style={{ marginTop: 20, marginBottom: 20 }}>
 					<Title>Settings</Title>
 
