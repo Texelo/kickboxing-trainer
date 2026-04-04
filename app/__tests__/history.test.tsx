@@ -23,7 +23,7 @@ jest.mock('react-native-paper', () => {
 
 // Expo Router Mock
 jest.mock('expo-router', () => ({
-    useFocusEffect: (cb: any) => React.useEffect(cb, [])
+    useFocusEffect: (cb: any) => require('react').useEffect(cb, [])
 }));
 
 // Stats helper mock

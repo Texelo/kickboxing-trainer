@@ -5,7 +5,7 @@ jest.mock("expo-speech");
 
 describe("Trainer Engine", () => {
     const mockExercises = [
-        { id: "1", moves: ["jab", "cross"], repDelay: 100 }
+        { id: "1", moves: [["jab", "cross"]], repDelay: 100 }
     ];
 
     beforeEach(() => {
