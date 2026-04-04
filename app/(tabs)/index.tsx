@@ -1,32 +1,29 @@
 import Slider from "@react-native-community/slider";
 import { useFocusEffect } from "expo-router";
 import * as Speech from "expo-speech";
-import React, { useEffect, useRef, useState } from "react";
-import { Alert, ScrollView, StyleSheet, View } from "react-native";
-import { Button, Card, Chip, Divider, IconButton, Surface, Text, useTheme } from "react-native-paper";
 import * as Linking from 'expo-linking';
 import * as FileSystem from 'expo-file-system/legacy';
+import React, { useEffect, useRef, useState } from "react";
+import { Alert, Platform, ScrollView, StyleSheet, View } from "react-native";
+import { Button, Text, useTheme } from "react-native-paper";
+
 import { decodeGroup } from "../../utils/backup";
 import { getValueFor, save } from "../../utils/settings";
 import { saveWorkout } from "../../utils/stats";
 import trainer from "../../utils/trainer";
 import type { ExerciseGroup } from "../../utils/types";
-import { Platform } from 'react-native';
-import { DEFAULT_GROUPS } from "../../utils/defaults";
+import { parseGroups } from "../../utils/groupParser";
 
-function formatTime(timeVal: number) {
-	const totalSeconds = Math.floor(timeVal / 100);
-	const minutes = Math.floor(totalSeconds / 60);
-	const seconds = totalSeconds % 60;
-	const hundredths = timeVal % 100;
-	return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}.${hundredths.toString().padStart(2, "0")}`;
-}
+import TimerDisplay from "../../components/trainer/TimerDisplay";
+import TrainerControls from "../../components/trainer/TrainerControls";
+import RoundConfig from "../../components/trainer/RoundConfig";
+import GroupSelector from "../../components/trainer/GroupSelector";
 
 export default function TrainerScreen() {
 	const theme = useTheme();
 	const [time, setTime] = useState(0);
 	const [status, setStatus] = useState(-1);
-	const [groups, setGroups] = useState<Array<ExerciseGroup>>([]);
+	const [groups, setGroups] = useState<ExerciseGroup[]>([]);
 	const [groupName, setGroupName] = useState<string>();
 	const [activeVoice, setActiveVoice] = useState<string>();
 	const [isCountdown, setIsCountdown] = useState(false);
@@ -44,33 +41,23 @@ export default function TrainerScreen() {
 	const statusRef = useRef(status);
 	const totalDurationRef = useRef(0);
 
-	// The wake lock sentinel.
 	let wakeLock: WakeLockSentinel | null = null;
 
-	// Function that attempts to request a screen wake lock.
 	const requestWakeLock = async () => {
 		try {
 			wakeLock = await navigator.wakeLock.request();
 			wakeLock.addEventListener('release', () => {
 				console.log('Screen Wake Lock released:', wakeLock?.released);
 			});
-			console.log('Screen Wake Lock released:', wakeLock?.released);
 		} catch (err) {
-			if (err instanceof Error) {
-				console.error(`${err.name}, ${err.message}`);
-			}
+			if (err instanceof Error) console.error(`${err.name}, ${err.message}`);
 		}
 	};
 
 	useEffect(() => {
 		statusRef.current = status;
-		if (status === 1) {
-			requestWakeLock();
-		}
-		else {
-			wakeLock?.release();
-			wakeLock = null;
-		}
+		if (status === 1) requestWakeLock();
+		else { wakeLock?.release(); wakeLock = null; }
 	}, [status]);
 
 	const selectedGroup = groups.find((g) => g.name === groupName);
@@ -91,9 +78,7 @@ export default function TrainerScreen() {
 			if (trainerRef.current) trainerRef.current.stop();
 
 			let targetExercises = selectedGroup.exercises;
-			if (isShuffle) {
-				targetExercises = [...targetExercises].sort(() => Math.random() - 0.5);
-			}
+			if (isShuffle) targetExercises = [...targetExercises].sort(() => Math.random() - 0.5);
 
 			trainerRef.current = trainer(targetExercises, activeVoice, intensity, false, reps, repeatCombo);
 			reset();
@@ -145,7 +130,6 @@ export default function TrainerScreen() {
 		} else if (trainerRef.current) {
 			trainerRef.current.skip();
 		} else if (status === 1 && isCountdown) {
-			// Skip standalone rests/countdowns
 			setTime(0);
 		}
 	};
@@ -210,7 +194,6 @@ export default function TrainerScreen() {
 					save("groups", JSON.stringify(updated));
 					setGroups(updated as ExerciseGroup[]);
 
-					// Auto-expand move library
 					getValueFor("movePool", (mp) => {
 						let pool = [];
 						try { if (mp) pool = JSON.parse(mp); } catch(e) {}
@@ -220,8 +203,7 @@ export default function TrainerScreen() {
 						getValueFor("enabledMoves", (em) => {
 							let enabled = [];
 							try { if (em) enabled = JSON.parse(em); } catch(e) {}
-							const updatedEnabled = Array.from(new Set([...enabled, ...newMoves]));
-							save("enabledMoves", JSON.stringify(updatedEnabled));
+							save("enabledMoves", JSON.stringify(Array.from(new Set([...enabled, ...newMoves]))));
 						});
 					});
 
@@ -262,7 +244,6 @@ export default function TrainerScreen() {
 			}
 		};
 
-		// PWA File Handling support
 		if (Platform.OS === 'web' && 'launchQueue' in window) {
 			(window as any).launchQueue.setConsumer(async (launchParams: any) => {
 				if (launchParams.files && launchParams.files.length > 0) {
@@ -278,10 +259,7 @@ export default function TrainerScreen() {
 			});
 		}
 
-		const subscription = Linking.addEventListener('url', (event) => {
-			handleDeepLink(event.url);
-		});
-
+		const subscription = Linking.addEventListener('url', (event) => handleDeepLink(event.url));
 		Linking.getInitialURL().then(handleDeepLink);
 		return () => subscription.remove();
 	}, [groups]);
@@ -292,7 +270,6 @@ export default function TrainerScreen() {
 				if (currentRound >= numRounds) {
 					if (trainerRef.current) trainerRef.current.stop();
 					Speech.speak("Workout complete!", { voice: activeVoice });
-
 					if (totalDurationRef.current > 3000) {
 						saveWorkout({
 							date: new Date().toISOString(),
@@ -301,7 +278,6 @@ export default function TrainerScreen() {
 							group: selectedGroup?.name || "Freestyle"
 						});
 					}
-
 					setStatus(-1);
 				} else {
 					Speech.speak(`Round over! ${restSecs} seconds rest.`, { voice: activeVoice });
@@ -330,47 +306,19 @@ export default function TrainerScreen() {
 		}
 	}, [time, status, isCountdown, phase, currentRound, numRounds, restSecs, workMins, activeVoice, selectedGroup]);
 
-
 	const loadGroups = React.useCallback(() => {
-		getValueFor("selectedVoice", (v) => {
-			if (v) setActiveVoice(v);
-		});
+		getValueFor("selectedVoice", (v) => { if (v) setActiveVoice(v); });
 		getValueFor("groups", (val) => {
-			let parsed = DEFAULT_GROUPS;
-			if (val) {
-				try {
-					const p = JSON.parse(val);
-					if (p && p.length > 0) {
-						parsed = p.map((g: any) => ({
-							...g,
-							exercises: g.exercises.map((ex: any) => ({
-								...ex,
-								moves: Array.isArray(ex.moves)
-									? (Array.isArray(ex.moves[0]) ? ex.moves : [ex.moves])  // new format or old array format
-									: (ex.moves ? [ex.moves.split(" ")] : [[]])  // old string format
-							}))
-						}));
-					}
-				} catch (e) { }
-			}
+			const parsed = parseGroups(val);
 			setGroups(parsed);
-
-			if (parsed.length > 0 && !groupName) {
-				setGroupName(parsed[0].name);
-			}
+			if (parsed.length > 0 && !groupName) setGroupName(parsed[0].name);
 		});
 	}, [groupName]);
 
-	useFocusEffect(
-		React.useCallback(() => {
-			loadGroups();
-		}, [loadGroups])
-	);
+	useFocusEffect(React.useCallback(() => { loadGroups(); }, [loadGroups]));
 
 	useEffect(() => {
-		if (trainerRef.current) {
-			trainerRef.current.updateSpeed(intensity);
-		}
+		if (trainerRef.current) trainerRef.current.updateSpeed(intensity);
 	}, [intensity]);
 
 	useEffect(() => {
@@ -387,18 +335,8 @@ export default function TrainerScreen() {
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-			<ScrollView contentContainerStyle={[styles.container, { paddingBottom: 40 }]}>
-				<Surface style={[styles.timeSurface, { backgroundColor: phase === 'rest' ? '#4a148c' : theme.colors.elevation.level2 }]} elevation={4}>
-					<Text variant="labelLarge" style={{ color: theme.colors.primary, textTransform: 'uppercase', letterSpacing: 2 }}>
-						Round {currentRound} of {numRounds}
-					</Text>
-					<Text variant="displayLarge" style={{ fontFamily: "monospace", fontWeight: "bold", fontSize: 60, color: phase === 'rest' ? '#e1bee7' : theme.colors.primary }}>
-						{formatTime(time)}
-					</Text>
-					<Text variant="titleMedium" style={{ color: theme.colors.secondary, textTransform: 'uppercase', fontWeight: '800' }}>
-						{phase}
-					</Text>
-				</Surface>
+			<ScrollView contentContainerStyle={styles.container}>
+				<TimerDisplay currentRound={currentRound} numRounds={numRounds} time={time} phase={phase} />
 
 				<View style={{ width: '100%', paddingVertical: 15, alignItems: 'center' }}>
 					<Text variant="labelLarge" style={{ color: theme.colors.secondary, marginBottom: 5 }}>
@@ -416,25 +354,15 @@ export default function TrainerScreen() {
 					/>
 				</View>
 
-				<View style={styles.controlsRow}>
-					<IconButton icon="skip-previous" size={40} iconColor={theme.colors.secondary} onPress={handleRewind} disabled={status === -1} />
-
-					{status !== 1 && (
-						<IconButton
-							icon="play-circle"
-							size={60}
-							iconColor={theme.colors.primary}
-							disabled={!selectedGroup || selectedGroup.exercises.length === 0}
-							onPress={handleStart}
-						/>
-					)}
-					{status === 1 && (
-						<IconButton icon="pause-circle" size={60} iconColor={theme.colors.secondary} onPress={handlePause} />
-					)}
-					<IconButton icon="stop-circle" size={60} iconColor={theme.colors.error} onPress={handleStop} disabled={status === -1} />
-
-					<IconButton icon="skip-next" size={40} iconColor={theme.colors.secondary} onPress={handleSkip} disabled={status === -1} />
-				</View>
+				<TrainerControls
+					status={status}
+					canStart={!!selectedGroup && selectedGroup.exercises.length > 0}
+					onStart={handleStart}
+					onPause={handlePause}
+					onStop={handleStop}
+					onSkip={handleSkip}
+					onRewind={handleRewind}
+				/>
 
 				<View style={{ flexDirection: 'row', gap: 10, justifyContent: 'center' }}>
 					<Button mode={isShuffle ? "contained" : "contained-tonal"} icon="shuffle" onPress={() => setIsShuffle(!isShuffle)}>Shuffle</Button>
@@ -443,89 +371,19 @@ export default function TrainerScreen() {
 				</View>
 
 				<View style={styles.trainerSetup}>
-					<Card style={{ backgroundColor: theme.colors.elevation.level1, marginBottom: 10 }} mode="contained">
-						<Card.Content style={{ flexDirection: 'column' }}>
-							<View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
-								<View style={{ alignItems: 'center' }}>
-									<Text variant="labelSmall">Rounds</Text>
-									<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-										<IconButton icon="minus" size={16} onPress={() => setNumRounds(Math.max(1, numRounds - 1))} />
-										<Text variant="titleMedium">{numRounds}</Text>
-										<IconButton icon="plus" size={16} onPress={() => setNumRounds(numRounds + 1)} />
-									</View>
-								</View>
-								<View style={{ width: 1, backgroundColor: theme.colors.outlineVariant, height: '80%', alignSelf: 'center' }} />
-								<View style={{ alignItems: 'center' }}>
-									<Text variant="labelSmall">Work (min)</Text>
-									<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-										<IconButton icon="minus" size={16} onPress={() => setWorkMins(Math.max(0.5, workMins - 0.5))} />
-										<Text variant="titleMedium">{workMins}</Text>
-										<IconButton icon="plus" size={16} onPress={() => setWorkMins(workMins + 0.5)} />
-									</View>
-								</View>
-								<View style={{ width: 1, backgroundColor: theme.colors.outlineVariant, height: '80%', alignSelf: 'center' }} />
-								<View style={{ alignItems: 'center' }}>
-									<Text variant="labelSmall">Rest (sec)</Text>
-									<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-										<IconButton icon="minus" size={16} onPress={() => setRestSecs(Math.max(10, restSecs - 10))} />
-										<Text variant="titleMedium">{restSecs}</Text>
-										<IconButton icon="plus" size={16} onPress={() => setRestSecs(restSecs + 10)} />
-									</View>
-								</View>
-							</View>
-
-							<Divider style={{ marginVertical: 12 }} />
-
-							<View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' }}>
-								<View style={{ alignItems: 'center' }}>
-									<Text variant="labelSmall">Reps</Text>
-									<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-										<IconButton icon="minus" size={16} onPress={() => setReps(Math.max(1, reps - 1))} />
-										<Text variant="titleMedium">{reps}</Text>
-										<IconButton icon="plus" size={16} onPress={() => setReps(reps + 1)} />
-									</View>
-								</View>
-								<View style={{ width: 1, backgroundColor: theme.colors.outlineVariant, height: '80%', alignSelf: 'center' }} />
-								<View style={{ alignItems: 'center' }}>
-									<Text variant="labelSmall">Repeat combo</Text>
-									<Button
-										mode={repeatCombo ? "contained" : "contained-tonal"}
-										icon="repeat"
-										onPress={() => setRepeatCombo(!repeatCombo)}
-										compact
-									>
-										{repeatCombo ? "On" : "Off"}
-									</Button>
-								</View>
-							</View>
-						</Card.Content>
-					</Card>
-
-					<Text variant="titleSmall" style={{ alignSelf: 'center', marginBottom: 10, color: theme.colors.outline }}>Select Training Sequence</Text>
-					<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 15, marginBottom: 20 }}>
-						{groups.length === 0 && <Chip icon="alert">No groups available</Chip>}
-						{groups.map((g) => (
-							<Chip
-								key={g.id}
-								mode={groupName === g.name ? "flat" : "outlined"}
-								selected={groupName === g.name}
-								onPress={() => setGroupName(g.name)}
-								style={groupName === g.name ? { backgroundColor: theme.colors.primaryContainer } : { backgroundColor: theme.colors.elevation.level1 }}
-							>
-								{g.name}
-							</Chip>
-						))}
-					</ScrollView>
-
-					{selectedGroup && selectedGroup.exercises.length > 0 && (
-						<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 15, marginBottom: 20, justifyContent: 'center' }}>
-							{selectedGroup.exercises.map(ex => (
-								<Chip key={ex.id} compact style={{ backgroundColor: theme.colors.elevation.level2 }} textStyle={{ fontSize: 13, color: theme.colors.secondary }}>
-									{ex.moves.map((combo, ci) => (ci > 0 ? ` + ${combo.join(" • ")}` : combo.join(" • "))).join("")}
-								</Chip>
-							))}
-						</View>
-					)}
+					<RoundConfig
+						numRounds={numRounds}
+						workMins={workMins}
+						restSecs={restSecs}
+						reps={reps}
+						repeatCombo={repeatCombo}
+						onRoundsChange={setNumRounds}
+						onWorkMinsChange={setWorkMins}
+						onRestSecsChange={setRestSecs}
+						onRepsChange={setReps}
+						onRepeatComboChange={setRepeatCombo}
+					/>
+					<GroupSelector groups={groups} selectedGroupName={groupName} onSelect={setGroupName} />
 				</View>
 			</ScrollView>
 		</View>
@@ -533,10 +391,6 @@ export default function TrainerScreen() {
 }
 
 const styles = StyleSheet.create({
-	container: { flex: 1, padding: 20, alignItems: "center", justifyContent: "flex-start" },
-	timeSurface: { width: "100%", paddingVertical: 40, alignItems: "center", borderRadius: 20, marginVertical: 20 },
-	controlsRow: { flexDirection: "row", justifyContent: "center", width: "100%", gap: 20, marginVertical: 10 },
+	container: { flex: 1, padding: 20, alignItems: "center", justifyContent: "flex-start", paddingBottom: 40 },
 	trainerSetup: { width: "100%", marginTop: 30, gap: 15 },
-	picker: { backgroundColor: "rgba(128,128,128,0.1)", borderRadius: 10 },
-	actionButton: { paddingVertical: 5 }
 });
